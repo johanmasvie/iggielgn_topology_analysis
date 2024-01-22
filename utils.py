@@ -1,3 +1,4 @@
+from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
 import networkx as nx
@@ -41,7 +42,7 @@ def create_graphs_from_dataset(df):
 
 #------------------------------------------------------------FROM HERE ONWARDS IS CODE FROM PROJECT THESIS------------------------------------------------------------
 
-def n_minus_1(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=False, er_best_worst=False):
+def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=False, er_best_worst=False):
 
     results_df = pd.DataFrame(columns=['iteration', 'composite', 'robustness', 'reach', 'connectivity', 'composite_b', 'robustness_b', 'reach_b', 'connectivity_b'])
     results_best_worst_df = pd.DataFrame(columns=['iteration', 'best_entity', 'composite_best', 'worst_entity', 'composite_worst'])
@@ -321,6 +322,45 @@ def ER_benchmark(G):
     p = len(G.edges) / (n * (n - 1))
     
     return nx.erdos_renyi_graph(n, p, directed=True, seed=SEED)
+
+def plot_connectedness_fourway(results_dfs, titles):
+    colors_set1 = ['peachpuff', 'powderblue']  # Custom colors for the first set of data
+    colors_set2 = ['orange', 'dodgerblue']  # Custom colors for the second set of data
+    
+    fig, axs = plt.subplots(2, 2, figsize=(12, 8))
+    axs = axs.flatten()
+
+    metric_columns_list = [['composite', 'composite'], ['robustness', 'robustness'], ['reach', 'reach'], ['connectivity', 'connectivity']]
+    benchmark_columns_list = [['composite_b', 'composite_b'], ['robustness_b', 'robustness_b'], ['reach_b', 'reach_b'], ['connectivity_b', 'connectivity_b']]
+    metric_labels_list = [['Real grid random', 'Real grid greedy'], ['Real grid random', 'Real grid greedy'], ['Real grid random', 'Real grid greedy'], ['Real grid random', 'Real grid greedy']]
+    benchmark_labels_list = [['ER grid random', 'ER grid greedy'], ['ER grid random', 'ER grid greedy'], ['ER grid random', 'ER grid greedy'], ['ER grid random', 'ER grid greedy']]
+    ylabel = ['connectedness', 'robustness', 'reach', 'connectivity']
+    
+    for i, ax in enumerate(axs):
+        metric_columns = metric_columns_list[i]
+        benchmark_columns = benchmark_columns_list[i]
+        metric_labels = metric_labels_list[i]
+        benchmark_labels = benchmark_labels_list[i]
+        
+        for j, results_df in enumerate(results_dfs):
+            if j == 0:
+                ax.plot(results_df['iteration'], results_df[metric_columns[j]], marker='o', label=metric_labels[j], color=colors_set1[0])
+                ax.plot(results_df['iteration'], results_df[benchmark_columns[j]], marker='o', label=benchmark_labels[j], color=colors_set1[1])
+            else:
+                ax.plot(results_df['iteration'], results_df[metric_columns[j]], marker='o', label=metric_labels[j], color=colors_set2[0])
+                ax.plot(results_df['iteration'], results_df[benchmark_columns[j]], marker='o', label=benchmark_labels[j], color=colors_set2[1])
+        
+        ax.set_xlabel('k iterations', fontsize=14)
+        ax.set_ylabel(ylabel[i], fontsize=14)
+        ax.grid(True)
+        ax.set_title(titles[i], fontsize=16)  
+        
+        if i == 0:
+            ax.legend()
+        
+    plt.tight_layout()
+    plt.show()
+
 
 
     
