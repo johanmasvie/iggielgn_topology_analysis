@@ -11,7 +11,7 @@ def create_graphs_from_dataset(df):
     Each nx.MultiDiGraph represents a month-year combination.
     """
     graphs = []
-    mm_yyyy = df.iloc[:, df.columns.get_loc('Oct-08'):]
+    mm_yyyy = df.iloc[:, df.columns.get_loc('Jan-10'):]
 
     for index, row in df.iterrows():
         seen_nonzero = False
