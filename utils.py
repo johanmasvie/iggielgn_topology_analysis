@@ -27,7 +27,7 @@ def create_graphs_from_dataset(df):
                     df.at[index, col] = 0
 
     for col in mm_yyyy.columns:
-        G = nx.MultiDiGraph()
+        G = nx.MultiDiGraph(name=col)
         non_zero_rows = df[(df[col] != -1) & (~df[col].isna())]
 
         for _, row in non_zero_rows.iterrows():
