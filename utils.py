@@ -46,6 +46,9 @@ def create_graphs_from_dataset(df):
 
             G.add_edge(exit_country, entry_country, borderpoint=borderpoint, flow=flow, capacity=float(max_flow))
 
+        # Add ENTSOG 2024 supply and demand data as node attributes
+        G = add_node_attributes(G)
+
         graphs.append(G)
     return graphs
 
@@ -82,6 +85,46 @@ def create_digraph_of(M):
         else:
             G.add_edge(u, v, flow=w, capacity=c)
     return G
+
+def add_node_attributes(G):
+    node_data = pd.read_csv('./Data/ENTSOG_2024_Supply_Demand.csv')
+
+    for node in G.nodes():
+        if node in node_data['Country'].values:
+            node_attributes = node_data[node_data['Country'] == node].iloc[0]
+            attributes = {
+                'Total Demand': node_attributes['Total Demand (GWh)'],
+                'Summer Demand': node_attributes['Summer Demand (GWh)'],
+                'Winter Demand': node_attributes['Winter Demand (GWh)'],
+                'Max Production': node_attributes['Max Production (GWh/d)'],
+                'Storage Deliverability': node_attributes['Storage Capacities Deliverability (GWh/d)'],
+                'Storage Injection': node_attributes['Storage Capacities Injection (GWh/d)'],
+                'Storage WGV': node_attributes['Storage Capacities WGV (GWh)'],
+                'LNG Send-out': node_attributes['LNG Capacities Send-out (GWh/d)'],
+                'LNG Storage': node_attributes['LNG Capacities Storage (Mcm)'],
+                'Power Generation': node_attributes['Power Generation (MWe)']
+            }
+            nx.set_node_attributes(G, {node: attributes})
+    return G
+
+def get_node_data(G):
+    
+    # Create a dataframe with the columns of the node attributes
+    col_names = []
+    for key, val in G.nodes.data():
+        if len(val) > 0:
+            for k, v in val.items():
+                col_names.append(k)
+            break
+
+    # Populate the dataframe with the node attributes
+    node_df = pd.DataFrame(columns=['Country'] + list(col_names))
+    for node, attributes in G.nodes(data=True):
+        node_info = {'Country': node}
+        node_info.update(attributes)  
+        node_df = node_df.append(node_info, ignore_index=True)
+    
+    return node_df
 
 
 #------------------------------------------------------------FROM HERE ONWARDS IS CODE FROM PROJECT THESIS------------------------------------------------------------
