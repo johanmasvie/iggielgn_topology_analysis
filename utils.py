@@ -4,6 +4,8 @@ import numpy as np
 import networkx as nx
 import random
 SEED=42
+month_map = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
+
 
 def create_graphs_from_dataset(df):
     """
@@ -11,7 +13,7 @@ def create_graphs_from_dataset(df):
     Each nx.MultiDiGraph represents a month-year combination.
     """
     graphs = []
-    mm_yyyy = df.iloc[:, df.columns.get_loc('Oct-08'):]
+    mm_yyyy = df.iloc[:, df.columns.get_loc('Jan-10'):]
 
     for index, row in df.iterrows():
         seen_nonzero = False
@@ -25,19 +27,92 @@ def create_graphs_from_dataset(df):
                     df.at[index, col] = 0
 
     for col in mm_yyyy.columns:
-        G = nx.MultiDiGraph()
+        G = nx.MultiDiGraph(name=col)
         non_zero_rows = df[(df[col] != -1) & (~df[col].isna())]
 
         for _, row in non_zero_rows.iterrows():
             borderpoint, exit_country, entry_country, max_flow, flow = row['Borderpoint'], row['Exit'], row['Entry'], row['MAXFLOW (Mm3/h)'], row[col]
 
+            if pd.isna(max_flow):
+                max_flow = row.drop(['Borderpoint', 'Exit', 'Entry', 'MAXFLOW (Mm3/h)']).max()
+
+            else:
+                month, year = col.split('-')
+                days_in_month = pd.Timestamp(year=int('20'+year), month=month_map[month], day=1).days_in_month
+                max_flow = float(max_flow) * 24 * days_in_month
+
             G.add_node(exit_country)
             G.add_node(entry_country)
 
-            G.add_edge(exit_country, entry_country, borderpoint=borderpoint, flow=flow, max_flow=float(max_flow))
+            G.add_edge(exit_country, entry_country, borderpoint=borderpoint, flow=flow, capacity=float(max_flow))
+
+        # Add ENTSOG 2024 supply and demand data as node attributes
+        G = add_node_attributes(G)
 
         graphs.append(G)
     return graphs
+
+def get_edge_data(graph):
+    edge_data = []
+
+    for edge in graph.edges(data=True):
+        source, target, edge_attributes = edge
+        borderpoint = edge_attributes.get('borderpoint', None)
+        max_flow = edge_attributes.get('capacity', None)
+        flow = edge_attributes.get('flow', None)
+
+        edge_data.append({'Source': source, 'Target': target, 'Borderpoint': borderpoint, 'Max Flow': max_flow, 'Flow': flow})
+
+    return pd.DataFrame(edge_data)
+
+def update_edge_capacities(graph):
+    for u, v, data in graph.edges(data=True):
+        flow = data['flow']
+        max_flow = data['capacity']
+        
+        if flow > max_flow:
+            data['capacity'] = flow
+    return graph
+
+def add_node_attributes(G):
+    node_data = pd.read_csv('./Data/ENTSOG_2024_Supply_Demand.csv')
+
+    for node in G.nodes():
+        if node in node_data['Country'].values:
+            node_attributes = node_data[node_data['Country'] == node].iloc[0]
+            attributes = {
+                'Total Demand': node_attributes['Total Demand (GWh)'],
+                'Summer Demand': node_attributes['Summer Demand (GWh)'],
+                'Winter Demand': node_attributes['Winter Demand (GWh)'],
+                'Max Production': node_attributes['Max Production (GWh/d)'],
+                'Storage Deliverability': node_attributes['Storage Capacities Deliverability (GWh/d)'],
+                'Storage Injection': node_attributes['Storage Capacities Injection (GWh/d)'],
+                'Storage WGV': node_attributes['Storage Capacities WGV (GWh)'],
+                'LNG Send-out': node_attributes['LNG Capacities Send-out (GWh/d)'],
+                'LNG Storage': node_attributes['LNG Capacities Storage (Mcm)'],
+                'Power Generation': node_attributes['Power Generation (MWe)']
+            }
+            nx.set_node_attributes(G, {node: attributes})
+    return G
+
+def get_node_data(G):
+    
+    # Create a dataframe with the columns of the node attributes
+    col_names = []
+    for key, val in G.nodes.data():
+        if len(val) > 0:
+            for k, v in val.items():
+                col_names.append(k)
+            break
+
+    # Populate the dataframe with the node attributes
+    node_df = pd.DataFrame(columns=['Country'] + list(col_names))
+    for node, attributes in G.nodes(data=True):
+        node_info = {'Country': node}
+        node_info.update(attributes)  
+        node_df = node_df.append(node_info, ignore_index=True)
+    
+    return node_df
 
 
 #------------------------------------------------------------FROM HERE ONWARDS IS CODE FROM PROJECT THESIS------------------------------------------------------------
