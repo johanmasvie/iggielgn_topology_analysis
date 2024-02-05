@@ -61,7 +61,7 @@ def get_edge_data(graph):
         max_flow = edge_attributes.get('capacity', None)
         flow = edge_attributes.get('flow', None)
 
-        edge_data.append({'Source': source, 'Target': target, 'Borderpoint': borderpoint, 'Max_Flow': max_flow, 'Flow': flow})
+        edge_data.append({'Source': source, 'Target': target, 'Borderpoint': borderpoint, 'Max Flow': max_flow, 'Flow': flow})
 
     return pd.DataFrame(edge_data)
 
@@ -73,18 +73,6 @@ def update_edge_capacities(graph):
         if flow > max_flow:
             data['capacity'] = flow
     return graph
-
-def create_digraph_of(M):
-    G = nx.DiGraph()
-    for u,v,data in M.edges(data=True):
-        w = data['flow'] if 'flow' in data else 1.0
-        c = data['capacity'] if 'capacity' in data else 1.0
-        if G.has_edge(u,v):
-            G[u][v]['flow'] += w
-            G[u][v]['capacity'] += c
-        else:
-            G.add_edge(u, v, flow=w, capacity=c)
-    return G
 
 def add_node_attributes(G):
     node_data = pd.read_csv('./Data/ENTSOG_2024_Supply_Demand.csv')
