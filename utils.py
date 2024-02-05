@@ -6,6 +6,74 @@ import random
 SEED=42
 month_map = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
 
+def max_flow(graph, sources, sinks, flow_func=nx.algorithms.flow.dinitz, capacity='capacity', show_plot=True):
+
+    """ Compute the maximum flow from sources to sinks in a graph and visualize the flow network.
+    Args:
+        graph: NetworkX graph
+        sources: List of source nodes
+        sinks: List of sink nodes
+        flow_func: Function to use for computing the maximum flow
+        capacity: Name of the edge attribute to use for flow capacity
+        show_plot: Whether to display the plot or not
+    Returns:
+        flow_value: Value of the maximum flow
+        flow_dict: Dictionary containing the flow value on each edge
+        flow_edges: List of edges with non-zero flow    
+    """
+
+    def add_super_source_sink(graph, sources, sinks):
+        super_source = "super_source"
+        super_sink = "super_sink"
+
+        # Create super source and add edges to all source nodes
+        graph.add_node(super_source)
+        for source in sources:
+            graph.add_edge(super_source, source, capacity=float('inf'))
+
+        # Create super sink and add edges from all sink nodes
+        graph.add_node(super_sink)
+        for sink in sinks:
+            graph.add_edge(sink, super_sink, capacity=float('inf'))
+
+        return super_source, super_sink
+    
+    super_source, super_sink = add_super_source_sink(graph, sources, sinks)
+
+    # Run max flow algorithm
+    flow_value, flow_dict = nx.maximum_flow(graph, super_source, super_sink, capacity=capacity, flow_func=flow_func)
+
+    # Extract edges with non-zero flow
+    flow_edges = [(u, v) for u in flow_dict for v in flow_dict[u] if flow_dict[u][v] > 0]
+
+    # Create a new graph with only relevant edges
+    relevant_graph = graph.edge_subgraph(flow_edges)
+
+    pos = nx.spring_layout(graph, k=3)
+
+    # Define node and edge colors
+    node_colors = ['red' if node in sources else 'yellow' if node in sinks else 'lightblue' for node in graph.nodes]
+    edge_colors = ['red' if (u, v) in flow_edges else 'gray' for u, v in graph.edges]
+
+    # Define edge labels
+    labels = {(u, v): f'{flow_dict[u][v]:.1f}' for u, v in flow_edges}
+
+    plt.figure(figsize=(20, 12))
+    nx.draw(graph, pos, with_labels=True, node_size=700, node_color=node_colors, font_size=8, font_color="black",
+            font_weight="bold", arrowsize=10, width=1, edge_color=edge_colors)
+    nx.draw_networkx_edges(relevant_graph, pos, edge_color='red', width=2)
+    nx.draw_networkx_edge_labels(graph, pos, edge_labels=labels, font_color='red')
+
+    title = f'Max Flow from {sources} to {sinks}: {flow_value:.1f}'
+    plt.title(title, fontsize=20)
+
+    if show_plot:
+        plt.show()
+    else:
+        plt.close()
+
+    return flow_value, flow_dict, flow_edges
+
 
 def create_graphs_from_dataset(df):
     """
@@ -48,6 +116,9 @@ def create_graphs_from_dataset(df):
 
         # Add ENTSOG 2024 supply and demand data as node attributes
         G = add_node_attributes(G)
+
+        # Fix edge capacities if flow exceeds max flow
+        G = update_edge_capacities(G)
 
         graphs.append(G)
     return graphs
