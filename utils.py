@@ -1,10 +1,44 @@
 from matplotlib import pyplot as plt
 import pandas as pd
+import geopandas as gpd
+import geojson as gj
+import json
 import numpy as np
 import networkx as nx
 import random
 SEED=42
 month_map = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
+
+###------------------------------------------------------------FROM HERE ARE FUNCTIONS TO LOAD DATA------------------------------------------------------------###
+
+def get_IGGIN_pipeline_data():
+    """
+    Loads the IGGIN pipeline dataset and returns it as a pandas DataFrame.
+    """
+    def process_column(df, column, prefix=''):
+        df[column] = df[column].apply(lambda x: json.loads(x.replace("'", '"')))
+        normalized_df = pd.json_normalize(df[column])
+        normalized_df.columns = [f'{prefix}{col}' for col in normalized_df.columns]
+        df = df.drop(columns=[column]).join(normalized_df)
+        return df
+
+    pipelines_gdf = gpd.read_file('Scigrid_data/IGGIN_PipeSegments.csv')
+
+    pipelines_gdf = process_column(pipelines_gdf, 'param')
+    pipelines_gdf = process_column(pipelines_gdf, 'uncertainty', 'uncertainty_')
+    pipelines_gdf = process_column(pipelines_gdf, 'method', 'method_')
+
+    columns_to_split = ['country_code', 'node_id']
+    for column in columns_to_split:
+        pipelines_gdf[column] = pipelines_gdf[column].apply(lambda x: x.replace('[', '').replace(']', '').replace("'", '').split(', '))
+        split_df = pd.DataFrame(pipelines_gdf[column].to_list(), columns=[f'{column}_1', f'{column}_2'])
+        pipelines_gdf = pipelines_gdf.drop(columns=[column]).join(split_df)
+
+    return pipelines_gdf
+
+
+
+###------------------------------------------------------------FROM HERE ARE ALGORITHMS AND GETTERS------------------------------------------------------------###
 
 def max_flow(graph, sources, sinks, flow_func=nx.algorithms.flow.dinitz, capacity='capacity', show_plot=True):
 
@@ -181,8 +215,8 @@ def get_node_data(G):
     for node, attributes in G.nodes(data=True):
         node_info = {'Country': node}
         node_info.update(attributes)  
-        node_df = node_df.append(node_info, ignore_index=True)
-    
+
+        node_df = pd.concat([node_df, pd.DataFrame([node_info])], ignore_index=True)    
     return node_df
 
 
