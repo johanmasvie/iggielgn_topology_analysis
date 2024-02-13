@@ -6,6 +6,7 @@ import json
 import numpy as np
 import networkx as nx
 import random
+import matplotlib.image as mpimg
 SEED=42
 month_map = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
 
@@ -56,7 +57,7 @@ def max_flow(graph, sources, sinks, flow_func=nx.algorithms.flow.dinitz, capacit
         flow_edges: List of edges with non-zero flow    
     """
 
-    def add_super_source_sink(graph, sources, sinks):
+    """ def add_super_source_sink(graph, sources, sinks):
         super_source = "super_source"
         super_sink = "super_sink"
 
@@ -72,10 +73,10 @@ def max_flow(graph, sources, sinks, flow_func=nx.algorithms.flow.dinitz, capacit
 
         return super_source, super_sink
     
-    super_source, super_sink = add_super_source_sink(graph, sources, sinks)
+    super_source, super_sink = add_super_source_sink(graph, sources, sinks) """
 
     # Run max flow algorithm
-    flow_value, flow_dict = nx.maximum_flow(graph, super_source, super_sink, capacity=capacity, flow_func=flow_func)
+    flow_value, flow_dict = nx.maximum_flow(graph, sources, sinks, capacity=capacity, flow_func=flow_func)
 
     # Extract edges with non-zero flow
     flow_edges = [(u, v) for u in flow_dict for v in flow_dict[u] if flow_dict[u][v] > 0]
@@ -83,7 +84,8 @@ def max_flow(graph, sources, sinks, flow_func=nx.algorithms.flow.dinitz, capacit
     # Create a new graph with only relevant edges
     relevant_graph = graph.edge_subgraph(flow_edges)
 
-    pos = nx.spring_layout(graph, k=3)
+    # Extract node positions if available
+    pos = nx.get_node_attributes(graph, 'pos')
 
     # Define node and edge colors
     node_colors = ['red' if node in sources else 'yellow' if node in sinks else 'lightblue' for node in graph.nodes]
@@ -92,11 +94,22 @@ def max_flow(graph, sources, sinks, flow_func=nx.algorithms.flow.dinitz, capacit
     # Define edge labels
     labels = {(u, v): f'{flow_dict[u][v]:.1f}' for u, v in flow_edges}
 
-    plt.figure(figsize=(20, 12))
-    nx.draw(graph, pos, with_labels=True, node_size=700, node_color=node_colors, font_size=8, font_color="black",
-            font_weight="bold", arrowsize=10, width=1, edge_color=edge_colors)
-    nx.draw_networkx_edges(relevant_graph, pos, edge_color='red', width=2)
-    nx.draw_networkx_edge_labels(graph, pos, edge_labels=labels, font_color='red')
+    europe_map = mpimg.imread('Europe_blank_map.png')
+
+
+    # Use plt.imshow to display the background map
+    plt.figure(figsize=(15, 10))
+    plt.imshow(europe_map, extent=[-20, 40, 35, 70], alpha=0.5)
+
+    # Draw nodes and edges on top of the map
+    nx.draw(graph, pos=pos, with_labels=False, node_size=70, node_color=node_colors, font_size=8,
+            font_color="black", font_weight="bold", arrowsize=10, width=1, edge_color=edge_colors, alpha=0.7)
+    
+    # Draw relevant edges with a thicker red line
+    nx.draw_networkx_edges(relevant_graph, pos=pos, edge_color='red', width=2)
+    
+    nx.draw_networkx_edge_labels(graph, pos=pos, edge_labels=labels, font_color='red', alpha=1, bbox=dict(alpha=0))
+
 
     title = f'Max Flow from {sources} to {sinks}: {flow_value:.1f}'
     plt.title(title, fontsize=20)
