@@ -89,51 +89,48 @@ def max_flow(graph, sources, sinks, flow_func=nx.algorithms.flow.dinitz, capacit
     # Extract edges with non-zero flow
     flow_edges = [(u, v) for u in flow_dict for v in flow_dict[u] if flow_dict[u][v] > 0]
 
-    # Extract node positions if available
-    pos = nx.get_node_attributes(graph_, 'pos')
-
-    europe_map = mpimg.imread('Europe_blank_map.png')
-    # Use plt.imshow to display the background map
-    plt.figure(figsize=(15, 10))
-    plt.imshow(europe_map, extent=[-20, 40, 35, 70], alpha=0.5)
-
-
-    # Remove super source and sink from the graph before visualizing
-    graph_.remove_node(super_source)
-    graph_.remove_node(super_sink)
-
-    # Extract all edges and flow edges to visualize
-    all_edges_to_visualize = [(u, v) for u, v in graph_.edges if not graph_.nodes[v]['is_country_node'] and not graph_.nodes[u]['is_country_node']]
-    flow_edges_to_visualize = flow_edges.copy()
-    for (u, v) in flow_edges:
-        if u=='super_source' or v=='super_sink':
-            flow_edges_to_visualize.remove((u, v))
-            
-    # Draw nodes and edges on top of the map
-    nx.draw(graph_, 
-            pos=pos,
-            with_labels=False,
-            node_size=70,
-            node_color=['red' if node in sources else 'yellow' if node in sinks else 'lightblue' for node in graph_.nodes],
-            font_size=8,
-            font_color="black",
-            font_weight="bold",
-            arrowsize=10,
-            edge_color='gray',
-            edgelist=all_edges_to_visualize,
-            alpha=0.7)
-    
-    # Create a new graph_ with only relevant edges
-    nx.draw_networkx_edges(graph_, pos=pos, edgelist=flow_edges_to_visualize, edge_color='green', width=2)
-
-
-    title = f'Max Flow from {sources} to {sinks}: {flow_value:.1f}'
-    plt.title(title, fontsize=20)
-
     if show_plot:
+        # Extract node positions if available
+        pos = nx.get_node_attributes(graph_, 'pos')
+
+        europe_map = mpimg.imread('Europe_blank_map.png')
+        # Use plt.imshow to display the background map
+        plt.figure(figsize=(15, 10))
+        plt.imshow(europe_map, extent=[-20, 40, 35, 70], alpha=0.5)
+
+
+        # Remove super source and sink from the graph before visualizing
+        graph_.remove_node(super_source)
+        graph_.remove_node(super_sink)
+
+        # Extract all edges and flow edges to visualize
+        all_edges_to_visualize = [(u, v) for u, v in graph_.edges if not graph_.nodes[v]['is_country_node'] and not graph_.nodes[u]['is_country_node']]
+        flow_edges_to_visualize = flow_edges.copy()
+        for (u, v) in flow_edges:
+            if u=='super_source' or v=='super_sink':
+                flow_edges_to_visualize.remove((u, v))
+                
+        # Draw nodes and edges on top of the map
+        nx.draw(graph_, 
+                pos=pos,
+                with_labels=False,
+                node_size=70,
+                node_color=['red' if node in sources else 'yellow' if node in sinks else 'lightblue' for node in graph_.nodes],
+                font_size=8,
+                font_color="black",
+                font_weight="bold",
+                arrowsize=10,
+                edge_color='gray',
+                edgelist=all_edges_to_visualize,
+                alpha=0.7)
+        
+        # Create a new graph_ with only relevant edges
+        nx.draw_networkx_edges(graph_, pos=pos, edgelist=flow_edges_to_visualize, edge_color='green', width=2)
+
+
+        title = f'Max Flow from {sources} to {sinks}: {flow_value:.1f}'
+        plt.title(title, fontsize=20)
         plt.show()
-    else:
-        plt.close()
 
     return flow_value, flow_dict, flow_edges
 
