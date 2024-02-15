@@ -42,73 +42,89 @@ def get_IGGIN_pipeline_data():
 ###------------------------------------------------------------FROM HERE ARE ALGORITHMS AND GETTERS------------------------------------------------------------###
 
 def max_flow(graph, sources, sinks, flow_func=nx.algorithms.flow.dinitz, capacity='capacity', show_plot=True):
+    import copy
+    import matplotlib.pyplot as plt
+    import matplotlib.image as mpimg
+    import networkx as nx
+    import numpy as np
 
-    """ Compute the maximum flow from sources to sinks in a graph and visualize the flow network.
-    Args:
-        graph: NetworkX graph
-        sources: List of source nodes
-        sinks: List of sink nodes
-        flow_func: Function to use for computing the maximum flow
-        capacity: Name of the edge attribute to use for flow capacity
-        show_plot: Whether to display the plot or not
-    Returns:
-        flow_value: Value of the maximum flow
-        flow_dict: Dictionary containing the flow value on each edge
-        flow_edges: List of edges with non-zero flow    
-    """
+    # Create a deep copy of the input graph
+    graph_ = copy.deepcopy(graph)
 
-    """ def add_super_source_sink(graph, sources, sinks):
+    def add_super_source_sink(graph, sources, sinks):
         super_source = "super_source"
         super_sink = "super_sink"
 
+        # Lookup the positions of country nodes for sources and sinks
+        source_positions = [graph.nodes[source]['pos'] for source in sources]
+        sink_positions = [graph.nodes[sink]['pos'] for sink in sinks]
+
+        # Calculate the average position of sources
+        avg_source_pos = np.mean(source_positions, axis=0)
+
+        # Calculate the average position of sinks
+        avg_sink_pos = np.mean(sink_positions, axis=0)
+
         # Create super source and add edges to all source nodes
-        graph.add_node(super_source)
+        graph.add_node(super_source, pos=avg_source_pos)
         for source in sources:
             graph.add_edge(super_source, source, capacity=float('inf'))
 
         # Create super sink and add edges from all sink nodes
-        graph.add_node(super_sink)
+        graph.add_node(super_sink, pos=avg_sink_pos)
         for sink in sinks:
             graph.add_edge(sink, super_sink, capacity=float('inf'))
 
         return super_source, super_sink
-    
-    super_source, super_sink = add_super_source_sink(graph, sources, sinks) """
+
+    super_source, super_sink = add_super_source_sink(graph_, sources, sinks)
+
+    # Get the nodes that have 'is_country_node' == True but are not in sources or sinks
+    country_nodes_to_remove = [node for node in graph_.nodes if graph_.nodes[node].get('is_country_node') and node not in sources and node not in sinks]
+    graph_.remove_nodes_from(country_nodes_to_remove)
 
     # Run max flow algorithm
-    flow_value, flow_dict = nx.maximum_flow(graph, sources, sinks, capacity=capacity, flow_func=flow_func)
+    flow_value, flow_dict = nx.maximum_flow(graph_, super_source, super_sink, capacity=capacity, flow_func=flow_func)
 
     # Extract edges with non-zero flow
     flow_edges = [(u, v) for u in flow_dict for v in flow_dict[u] if flow_dict[u][v] > 0]
 
-    # Create a new graph with only relevant edges
-    relevant_graph = graph.edge_subgraph(flow_edges)
-
     # Extract node positions if available
-    pos = nx.get_node_attributes(graph, 'pos')
-
-    # Define node and edge colors
-    node_colors = ['red' if node in sources else 'yellow' if node in sinks else 'lightblue' for node in graph.nodes]
-    edge_colors = ['red' if (u, v) in flow_edges else 'gray' for u, v in graph.edges]
-
-    # Define edge labels
-    labels = {(u, v): f'{flow_dict[u][v]:.1f}' for u, v in flow_edges}
+    pos = nx.get_node_attributes(graph_, 'pos')
 
     europe_map = mpimg.imread('Europe_blank_map.png')
-
-
     # Use plt.imshow to display the background map
     plt.figure(figsize=(15, 10))
     plt.imshow(europe_map, extent=[-20, 40, 35, 70], alpha=0.5)
 
+
+    # Remove super source and sink from the graph before visualizing
+    graph_.remove_node(super_source)
+    graph_.remove_node(super_sink)
+
+    # Extract all edges and flow edges to visualize
+    all_edges_to_visualize = [(u, v) for u, v in graph_.edges if not graph_.nodes[v]['is_country_node'] and not graph_.nodes[u]['is_country_node']]
+    flow_edges_to_visualize = flow_edges.copy()
+    for (u, v) in flow_edges:
+        if u=='super_source' or v=='super_sink':
+            flow_edges_to_visualize.remove((u, v))
+            
     # Draw nodes and edges on top of the map
-    nx.draw(graph, pos=pos, with_labels=False, node_size=70, node_color=node_colors, font_size=8,
-            font_color="black", font_weight="bold", arrowsize=10, width=1, edge_color=edge_colors, alpha=0.7)
+    nx.draw(graph_, 
+            pos=pos,
+            with_labels=False,
+            node_size=70,
+            node_color=['red' if node in sources else 'yellow' if node in sinks else 'lightblue' for node in graph_.nodes],
+            font_size=8,
+            font_color="black",
+            font_weight="bold",
+            arrowsize=10,
+            edge_color='gray',
+            edgelist=all_edges_to_visualize,
+            alpha=0.7)
     
-    # Draw relevant edges with a thicker red line
-    nx.draw_networkx_edges(relevant_graph, pos=pos, edge_color='red', width=2)
-    
-    nx.draw_networkx_edge_labels(graph, pos=pos, edge_labels=labels, font_color='red', alpha=1, bbox=dict(alpha=0))
+    # Create a new graph_ with only relevant edges
+    nx.draw_networkx_edges(graph_, pos=pos, edgelist=flow_edges_to_visualize, edge_color='green', width=2)
 
 
     title = f'Max Flow from {sources} to {sinks}: {flow_value:.1f}'
@@ -120,6 +136,7 @@ def max_flow(graph, sources, sinks, flow_func=nx.algorithms.flow.dinitz, capacit
         plt.close()
 
     return flow_value, flow_dict, flow_edges
+
 
 
 def create_graphs_from_dataset(df):
