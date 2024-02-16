@@ -246,6 +246,26 @@ def get_node_data(G):
         node_df = pd.concat([node_df, pd.DataFrame([node_info])], ignore_index=True)    
     return node_df
 
+#------------------------------------------------------------FROM HERE ONWARDS ARE FUNCTIONS FOR PLOTTING------------------------------------------------------------
+
+def plot_biplot(results_df, heuristic, remove):
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+
+    # Plot max_flow value versus k iterations
+    ax1.plot(results_df.index, results_df['max_flow_value'], marker='o')
+    ax1.set_xlabel('k iterations')
+    ax1.set_ylabel('max_flow value')
+    ax1.set_title('Max Flow Value vs k ' + heuristic + ' ' + remove + ' removals')
+
+    # Plot capacity_robustness versus k iterations
+    ax2.plot(results_df.index, results_df['capacity_robustness_max_flow'], marker='o')
+    ax2.set_xlabel('k iterations')
+    ax2.set_ylabel('capacity_robustness')
+    ax2.set_title('Capacity Robustness vs k ' + heuristic + ' ' + remove + ' removals')
+
+    plt.tight_layout()
+    plt.show()
+
 
 #------------------------------------------------------------FROM HERE ONWARDS IS CODE FROM PROJECT THESIS------------------------------------------------------------
 
