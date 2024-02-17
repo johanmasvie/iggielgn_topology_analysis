@@ -332,7 +332,10 @@ def visualize_network_state(results_df_, iteration, only_flow_edges=False):
 
     _entity = 'node' if not isinstance(g_removed_entity, tuple) else 'edge'
     plt.suptitle('Network state at iteration ' + str(iteration)+' of '+g_heuristic+ ' heuristc, '+_entity+' removal', fontsize=20)
-    plt.title('Sources: '+str(g_sources)+', sinks: '+str(g_sinks)+'\nCurrent max Flow: ' + str(round(results_df.max_flow_value.iloc[iteration], 2))+ ' ['+str(round(results_df.max_flow_value.iloc[0],2))+']' +'\nCurrent flow capacity robustness: '+str(round(results_df.capacity_robustness_max_flow.iloc[iteration], 2)), fontsize=16, loc='left')
+    plt.title('Sources: '+str(g_sources)+', sinks: '+str(g_sinks)+'\nCurrent max flow: ' + str(round(results_df.max_flow_value.iloc[iteration], 2))+ ' ['+str(round(results_df.max_flow_value.iloc[0],2))+']' +'\nCurrent flow capacity robustness: '+str(round(results_df.capacity_robustness_max_flow.iloc[iteration], 2)), fontsize=16, loc='left')
+
+    if only_flow_edges:
+        plt.title('Only flow edges are visualized', fontsize=16, loc='right')
 
     plt.show()
 
