@@ -1,4 +1,5 @@
 from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
 import pandas as pd
 import geopandas as gpd
 import geojson as gj
@@ -246,6 +247,97 @@ def get_node_data(G):
         node_df = pd.concat([node_df, pd.DataFrame([node_info])], ignore_index=True)    
     return node_df
 
+#------------------------------------------------------------FROM HERE ONWARDS ARE FUNCTIONS FOR PLOTTING------------------------------------------------------------
+
+def plot_biplot(results_df, heuristic, remove):
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+
+    # Plot max_flow value versus k iterations
+    ax1.plot(results_df.index, results_df['max_flow_value'], marker='o')
+    ax1.set_xlabel('k iterations')
+    ax1.set_ylabel('max_flow value')
+    ax1.set_title('Max Flow Value vs k ' + heuristic + ' ' + remove + ' removals')
+
+    # Plot capacity_robustness versus k iterations
+    ax2.plot(results_df.index, results_df['capacity_robustness_max_flow'], marker='o')
+    ax2.set_xlabel('k iterations')
+    ax2.set_ylabel('capacity_robustness')
+    ax2.set_title('Capacity Robustness vs k ' + heuristic + ' ' + remove + ' removals')
+
+    plt.tight_layout()
+    plt.show()
+
+def visualize_network_state(results_df_, iteration, only_flow_edges=False):
+
+    if iteration > len(results_df_) - 1:
+        raise ValueError("Too large iteration number. Max iteration number is " + str(len(results_df_) - 1))
+
+    results_df = results_df_.copy()
+
+    g_network_state = results_df.network_state.iloc[iteration]
+    g_flow_dict = results_df.flow_dict.iloc[iteration]
+    g_removed_entity = results_df.removed_entity.iloc[iteration]
+    g_sources = results_df.sources.iloc[iteration]
+    g_sinks = results_df.sinks.iloc[iteration]
+    g_heuristic = results_df.heuristic.iloc[iteration]
+    g_entity_data = results_df.entity_data.iloc[iteration]
+
+    pos = nx.get_node_attributes(g_network_state, 'pos')
+    
+    europe_map = mpimg.imread('Europe_blank_map.png')
+    # Use plt.imshow to display the background map
+    plt.figure(figsize=(15, 10))
+    plt.imshow(europe_map, extent=[-20, 40, 35, 70], alpha=0.5)
+
+    # Extract all edges and flow edges to visualize
+    all_edges_to_visualize = [(u, v) for u, v in g_network_state.edges if not g_network_state.nodes[v]['is_country_node'] and not g_network_state.nodes[u]['is_country_node']]
+
+    flow_edges = [(u, v) for u in g_flow_dict for v in g_flow_dict[u] if g_flow_dict[u][v] > 0]
+    flow_edges_to_visualize = flow_edges.copy()
+    for (u, v) in flow_edges:
+        if u == 'super_source' or v == 'super_sink':
+            flow_edges_to_visualize.remove((u, v))
+
+    flow_edges_to_visualize = [e for e in flow_edges if e in g_network_state.edges]
+
+    if not only_flow_edges:
+        nx.draw(g_network_state,
+                pos=pos,
+                with_labels=False,
+                node_size=70,
+                node_color=['red' if node in g_sources else 'yellow' if node in g_sinks else 'lightblue' for node in g_network_state.nodes],
+                font_size=8,
+                font_color="black",
+                font_weight="bold",
+                arrowsize=10,
+                edge_color='gray',
+                edgelist=all_edges_to_visualize,
+                alpha=0.7)
+    
+    if not isinstance(g_removed_entity, tuple):  
+        node_pos = {g_removed_entity: g_entity_data['pos']}
+        nx.draw_networkx_nodes(g_network_state, pos=node_pos, nodelist=[g_removed_entity], node_color='blue', node_size=70)
+
+    else:  
+        nx.draw_networkx_edges(g_network_state, pos=pos, edgelist=[g_removed_entity], edge_color='blue', width=4)
+
+    # Create a new g_network_state with only relevant edges
+    nx.draw_networkx_edges(g_network_state, pos=pos, edgelist=flow_edges_to_visualize, edge_color='green', width=2)
+
+    plt.legend(handles=[
+        Line2D([0], [0], color='gray', label='Gray edges: pipelines with zero flow'),
+        Line2D([0], [0], color='green', label='Green edges: pipelines with non-zero flow'),
+        Line2D([0], [0], marker='o', color='blue', label='Blue entities: entity removed at current iteration')
+    ], loc='lower right')
+
+    _entity = 'node' if not isinstance(g_removed_entity, tuple) else 'edge'
+    plt.suptitle('Network state at iteration ' + str(iteration)+' of '+g_heuristic+ ' heuristc, '+_entity+' removal', fontsize=20)
+    plt.title('Sources: '+str(g_sources)+', sinks: '+str(g_sinks)+'\nCurrent max flow: ' + str(round(results_df.max_flow_value.iloc[iteration], 2))+ ' ['+str(round(results_df.max_flow_value.iloc[0],2))+']' +'\nCurrent flow capacity robustness: '+str(round(results_df.capacity_robustness_max_flow.iloc[iteration], 2)), fontsize=16, loc='left')
+
+    if only_flow_edges:
+        plt.title('Only flow edges are visualized', fontsize=16, loc='right')
+
+    plt.show()
 
 #------------------------------------------------------------FROM HERE ONWARDS IS CODE FROM PROJECT THESIS------------------------------------------------------------
 
@@ -529,6 +621,18 @@ def ER_benchmark(G):
     p = len(G.edges) / (n * (n - 1))
     
     return nx.erdos_renyi_graph(n, p, directed=True, seed=SEED)
+
+
+def ER_benchmark_with_capacity(G):
+    """
+    Generates and returns a random directed graph using the Erdős-Rényi model with edge capacities. 
+    """
+    er_graph = ER_benchmark()
+
+    for edge in er_graph.edges:
+        er_graph.edges[edge]['capacity'] = np.mean([G.edges[edge]['capacity'] for edge in G.edges])
+    
+    return er_graph
 
 def plot_connectedness_fourway(results_dfs, titles):
     colors_set1 = ['peachpuff', 'powderblue']  # Custom colors for the first set of data
