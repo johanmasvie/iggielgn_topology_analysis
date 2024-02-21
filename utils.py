@@ -50,7 +50,7 @@ def max_flow(graph, sources, sinks, flow_func=nx.algorithms.flow.dinitz, capacit
     import numpy as np
 
     # Create a deep copy of the input graph
-    graph_ = copy.deepcopy(graph)
+    graph_ = graph.copy()
 
     def add_super_source_sink(graph, sources, sinks):
         super_source = "super_source"
@@ -69,12 +69,12 @@ def max_flow(graph, sources, sinks, flow_func=nx.algorithms.flow.dinitz, capacit
         # Create super source and add edges to all source nodes
         graph.add_node(super_source, pos=avg_source_pos)
         for source in sources:
-            graph.add_edge(super_source, source, capacity=float('inf'))
+            graph.add_edge(super_source, source, capacity=10000)
 
         # Create super sink and add edges from all sink nodes
         graph.add_node(super_sink, pos=avg_sink_pos)
         for sink in sinks:
-            graph.add_edge(sink, super_sink, capacity=float('inf'))
+            graph.add_edge(sink, super_sink, capacity=10000)
 
         return super_source, super_sink
 
@@ -249,7 +249,11 @@ def get_node_data(G):
 
 #------------------------------------------------------------FROM HERE ONWARDS ARE FUNCTIONS FOR PLOTTING------------------------------------------------------------
 
-def plot_biplot(results_df, heuristic, remove):
+def plot_biplot(results_df):
+
+    heuristic = str(results_df.iloc[1]['heuristic'])
+    remove = 'edge' if isinstance(results_df.iloc[1]['removed_entity'], tuple) else 'node'
+
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 
     # Plot max_flow value versus k iterations
@@ -263,6 +267,7 @@ def plot_biplot(results_df, heuristic, remove):
     ax2.set_xlabel('k iterations')
     ax2.set_ylabel('capacity_robustness')
     ax2.set_title('Capacity Robustness vs k ' + heuristic + ' ' + remove + ' removals')
+
 
     plt.tight_layout()
     plt.show()
@@ -319,7 +324,7 @@ def visualize_network_state(results_df_, iteration, only_flow_edges=False):
         nx.draw_networkx_nodes(g_network_state, pos=node_pos, nodelist=[g_removed_entity], node_color='blue', node_size=70)
 
     else:  
-        nx.draw_networkx_edges(g_network_state, pos=pos, edgelist=[g_removed_entity], edge_color='blue', width=4)
+        nx.draw_networkx_edges(results_df.network_state.iloc[iteration-1], pos=pos, edgelist=[g_removed_entity], edge_color='blue', width=4)
 
     # Create a new g_network_state with only relevant edges
     nx.draw_networkx_edges(g_network_state, pos=pos, edgelist=flow_edges_to_visualize, edge_color='green', width=2)
@@ -332,7 +337,7 @@ def visualize_network_state(results_df_, iteration, only_flow_edges=False):
 
     _entity = 'node' if not isinstance(g_removed_entity, tuple) else 'edge'
     plt.suptitle('Network state at iteration ' + str(iteration)+' of '+g_heuristic+ ' heuristc, '+_entity+' removal', fontsize=20)
-    plt.title('Sources: '+str(g_sources)+', sinks: '+str(g_sinks)+'\nCurrent max flow: ' + str(round(results_df.max_flow_value.iloc[iteration], 2))+ ' ['+str(round(results_df.max_flow_value.iloc[0],2))+']' +'\nCurrent flow capacity robustness: '+str(round(results_df.capacity_robustness_max_flow.iloc[iteration], 2)), fontsize=16, loc='left')
+    plt.title('Sources: '+str(g_sources)+', sinks: '+str(g_sinks)+'\nCurrent max flow: ' + str(round(results_df.max_flow_value.iloc[iteration], 2))+ ' ['+str(round(results_df.max_flow_value.iloc[0],2))+']' +'\nCurrent flow capacity robustness: '+str(round(results_df.capacity_robustness_max_flow.iloc[iteration], 2)), fontsize=16, loc='left', y=0.95)
 
     if only_flow_edges:
         plt.title('Only flow edges are visualized', fontsize=16, loc='right')
