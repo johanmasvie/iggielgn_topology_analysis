@@ -2,7 +2,7 @@ from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 import pandas as pd
 import geopandas as gpd
-import geojson as gj
+from tqdm import tqdm
 import json
 import numpy as np
 import networkx as nx
@@ -346,7 +346,7 @@ def visualize_network_state(results_df_, iteration, only_flow_edges=False):
 
 #------------------------------------------------------------FROM HERE ONWARDS IS CODE FROM PROJECT THESIS------------------------------------------------------------
 
-def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=False, er_best_worst=False):
+def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=False, er_best_worst=False, print_output=False, SEED=42):
 
     results_df = pd.DataFrame(columns=['iteration', 'composite', 'robustness', 'reach', 'connectivity', 'composite_b', 'robustness_b', 'reach_b', 'connectivity_b'])
     results_best_worst_df = pd.DataFrame(columns=['iteration', 'best_entity', 'composite_best', 'worst_entity', 'composite_worst'])
@@ -356,7 +356,11 @@ def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=Fa
         largest_component = max(weakly_connected, key=len)
         largest_component_graph = G.subgraph(largest_component)
 
-        return len(largest_component), len(weakly_connected), len(list(nx.strongly_connected_components(G))), nx.average_shortest_path_length(largest_component_graph), nx.diameter(largest_component_graph.to_undirected()), np.average(np.array(list(list(dict(CCI(G)).values()))))
+        strongly_connected = list(nx.strongly_connected_components(G))
+        largest_strongly_connected = max(strongly_connected, key=len)
+        largest_strongly_connected_graph = G.subgraph(largest_strongly_connected)
+
+        return len(largest_component), len(weakly_connected), len(strongly_connected), nx.average_shortest_path_length(largest_strongly_connected_graph), nx.diameter(largest_component_graph.to_undirected()), np.average(np.array(list(list(dict(CCI(G)).values()))))
     
     def find_best_and_worst(find_best, current_graph, G_init, lcs, nwc, nsc, aspl, dia, comp_centrs, remove_node=True):
         best_score, worst_score = float('-inf'), float('inf')
@@ -406,7 +410,7 @@ def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=Fa
         r_worst = Gb_init.copy()
         lcs_BW, nwc_BW, nsc_BW, aspl_BW, dia_BW, comp_centrs_BW = lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, aspl_Gb_init, dia_Gb_init, comp_centrs_Gb_init
 
-    for i in range(k_removals + 1):  # Loop through k_removals + 1 iterations
+    for i in tqdm(range(k_removals + 1), desc='N-k iterations'):  # Loop through k_removals + 1 iterations
         b_connectedness_lst, b_robustness_lst, b_reach_lst, b_connectivity_lst = [], [], [], []
         r_connectedness_lst, r_robustness_lst, r_reach_lst, r_connectivity_lst = [], [], [], []
 
@@ -454,10 +458,11 @@ def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=Fa
                 for real_copy in r_graphs:  # Iterate through the instantiated copies
                     target = random.choice(list(real_copy.nodes() if remove == 'node' else real_copy.edges()))
 
-                    if remove == 'node':
-                        print('Node removed at random iteration '+str(i)+': '+str(target))
-                    else:
-                        print('Edge removed at random iteration '+str(i)+': '+str(target))
+                    if print_output:
+                        if remove == 'node':
+                            print('Node removed at random iteration '+str(i)+': '+str(target))
+                        else:
+                            print('Edge removed at random iteration '+str(i)+': '+str(target))
 
                     real_copy.remove_node(target) if remove == 'node' else real_copy.remove_edge(*target)
                     r_composite, r_robustness, r_reach, r_connectivity = GCI(real_copy, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centrs_G_init)
@@ -489,10 +494,11 @@ def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=Fa
             func = CCI_v if remove == 'node' else CCI_e
             target = func(G)
 
-            if remove == 'node':
-                print('Node removed at greedy iteration '+str(i)+': '+str(target))
-            else:
-                print('Edge removed at greedy iteration '+str(i)+': '+str(target))
+            if print_output:
+                if remove == 'node':
+                    print('Node removed at greedy iteration '+str(i)+': '+str(target))
+                else:
+                    print('Edge removed at greedy iteration '+str(i)+': '+str(target))
 
             G.remove_node(target) if remove == 'node' else G.remove_edge(*target)
             
@@ -516,11 +522,19 @@ def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=Fa
 def GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centr_G_init):
     largest_component_size, num_weakly_connected, num_strongly_connected, average_shortest_path_length, diameter, node_composite_centrality = get_connectedness_metrics_of(G)
 
+    if diameter == 0:
+        diameter = 1
+
     """
     RESILIENCE 
     Measures the network's resilience against random failures or targeted attacks. 
     It's approximated by the relative sizes of the largest connected component, weakly connected components, and strongly connected components.
     """
+    if num_weakly_connected == 0:
+        num_weakly_connected = 1
+    if num_strongly_connected == 0:
+        num_strongly_connected = 1
+        
     GCI_robustness = (largest_component_size / lcs_G_init) * (nwc_G_init / num_weakly_connected) * ( nsc_G_init / num_strongly_connected)
 
     """
@@ -602,14 +616,18 @@ def get_connectedness_metrics_of(G):
     - Node composite centrality
     """
     weakly_connected = list(nx.weakly_connected_components(G))
-    largest_component = max(weakly_connected, key=len)
+    largest_component = max(weakly_connected, key=len, default=[])
     largest_component_size = len(largest_component)
     num_weakly_connected = len(weakly_connected)
     num_strongly_connected = len(list(nx.strongly_connected_components(G)))
 
+    strongly_connected = list(nx.strongly_connected_components(G))
+    largest_strongly_connected = max(strongly_connected, key=len, default=[])
+    largest_strongly_connected_graph = G.subgraph(largest_strongly_connected)
+
     if largest_component_size > 1:
         largest_component_graph = G.subgraph(largest_component)
-        average_shortest_path_length = nx.average_shortest_path_length(largest_component_graph)
+        average_shortest_path_length = nx.average_shortest_path_length(largest_strongly_connected_graph)
         diameter = nx.diameter(largest_component_graph.to_undirected())
         node_composite_centrality = np.average(np.array(list(dict(CCI(G)).values())))
     else:
