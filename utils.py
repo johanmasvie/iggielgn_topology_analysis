@@ -695,6 +695,38 @@ def plot_connectedness_fourway(results_dfs, titles):
     plt.tight_layout()
     plt.show()
 
+def compare_scigrid_entsog(data, metric=None):
+   
+    scigrid_columns = ['iteration_scigrid', 'composite_scigrid', 'robustness_scigrid', 'reach_scigrid', 'connectivity_scigrid']
+    entsog_columns = ['iteration_entsog', 'composite_entsog', 'robustness_entsog', 'reach_entsog', 'connectivity_entsog']
+
+    df = data.copy()
+
+    df['iteration_scigrid_scaled'] = (df['iteration_scigrid'] - df['iteration_scigrid'].min()) / (df['iteration_scigrid'].max() - df['iteration_scigrid'].min())
+    df['iteration_entsog_scaled'] = (df['iteration_entsog'] - df['iteration_entsog'].min()) / (df['iteration_entsog'].max() - df['iteration_entsog'].min())
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
+
+    if metric == None:
+        for i, col in enumerate(scigrid_columns[1:]):
+            plt.plot(df['iteration_scigrid_scaled'], df[col], label=col, linestyle='-', color=f'C{i}', linewidth=2)
+
+        # Plotting entsog
+        for i, col in enumerate(entsog_columns[1:]):
+            plt.plot(df['iteration_entsog_scaled'], df[col], label=col, linestyle='--', color=f'C{i}', linewidth=2)
+
+    else:
+        plt.plot(df['iteration_scigrid_scaled'], df[metric+'_scigrid'], label=metric+'_scigrid', linestyle='-', color='C0', linewidth=2)
+        plt.plot(df['iteration_entsog_scaled'], df[metric+'_entsog'], label=metric+'_entsog', linestyle='--', color='C0', linewidth=2)
+
+    plt.xlabel('Scaled Iteration')
+    plt.ylabel('Metrics')
+    plt.suptitle('N-k project thesis algorithm, Scigrid and Entsog comparison', x=.375)
+    plt.title(data.name, loc='left')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 
 
     
