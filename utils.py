@@ -2,7 +2,7 @@ from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 import pandas as pd
 import geopandas as gpd
-import geojson as gj
+from tqdm import tqdm
 import json
 import numpy as np
 import networkx as nx
@@ -50,7 +50,7 @@ def max_flow(graph, sources, sinks, flow_func=nx.algorithms.flow.dinitz, capacit
     import numpy as np
 
     # Create a deep copy of the input graph
-    graph_ = copy.deepcopy(graph)
+    graph_ = graph.copy()
 
     def add_super_source_sink(graph, sources, sinks):
         super_source = "super_source"
@@ -69,12 +69,12 @@ def max_flow(graph, sources, sinks, flow_func=nx.algorithms.flow.dinitz, capacit
         # Create super source and add edges to all source nodes
         graph.add_node(super_source, pos=avg_source_pos)
         for source in sources:
-            graph.add_edge(super_source, source, capacity=float('inf'))
+            graph.add_edge(super_source, source, capacity=10000)
 
         # Create super sink and add edges from all sink nodes
         graph.add_node(super_sink, pos=avg_sink_pos)
         for sink in sinks:
-            graph.add_edge(sink, super_sink, capacity=float('inf'))
+            graph.add_edge(sink, super_sink, capacity=10000)
 
         return super_source, super_sink
 
@@ -249,7 +249,11 @@ def get_node_data(G):
 
 #------------------------------------------------------------FROM HERE ONWARDS ARE FUNCTIONS FOR PLOTTING------------------------------------------------------------
 
-def plot_biplot(results_df, heuristic, remove):
+def plot_biplot(results_df):
+
+    heuristic = str(results_df.iloc[1]['heuristic'])
+    remove = 'edge' if isinstance(results_df.iloc[1]['removed_entity'], tuple) else 'node'
+
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 
     # Plot max_flow value versus k iterations
@@ -263,6 +267,7 @@ def plot_biplot(results_df, heuristic, remove):
     ax2.set_xlabel('k iterations')
     ax2.set_ylabel('capacity_robustness')
     ax2.set_title('Capacity Robustness vs k ' + heuristic + ' ' + remove + ' removals')
+
 
     plt.tight_layout()
     plt.show()
@@ -319,7 +324,7 @@ def visualize_network_state(results_df_, iteration, only_flow_edges=False):
         nx.draw_networkx_nodes(g_network_state, pos=node_pos, nodelist=[g_removed_entity], node_color='blue', node_size=70)
 
     else:  
-        nx.draw_networkx_edges(g_network_state, pos=pos, edgelist=[g_removed_entity], edge_color='blue', width=4)
+        nx.draw_networkx_edges(results_df.network_state.iloc[iteration-1], pos=pos, edgelist=[g_removed_entity], edge_color='blue', width=4)
 
     # Create a new g_network_state with only relevant edges
     nx.draw_networkx_edges(g_network_state, pos=pos, edgelist=flow_edges_to_visualize, edge_color='green', width=2)
@@ -332,7 +337,7 @@ def visualize_network_state(results_df_, iteration, only_flow_edges=False):
 
     _entity = 'node' if not isinstance(g_removed_entity, tuple) else 'edge'
     plt.suptitle('Network state at iteration ' + str(iteration)+' of '+g_heuristic+ ' heuristc, '+_entity+' removal', fontsize=20)
-    plt.title('Sources: '+str(g_sources)+', sinks: '+str(g_sinks)+'\nCurrent max flow: ' + str(round(results_df.max_flow_value.iloc[iteration], 2))+ ' ['+str(round(results_df.max_flow_value.iloc[0],2))+']' +'\nCurrent flow capacity robustness: '+str(round(results_df.capacity_robustness_max_flow.iloc[iteration], 2)), fontsize=16, loc='left')
+    plt.title('Sources: '+str(g_sources)+', sinks: '+str(g_sinks)+'\nCurrent max flow: ' + str(round(results_df.max_flow_value.iloc[iteration], 2))+ ' ['+str(round(results_df.max_flow_value.iloc[0],2))+']' +'\nCurrent flow capacity robustness: '+str(round(results_df.capacity_robustness_max_flow.iloc[iteration], 2)), fontsize=16, loc='left', y=0.95)
 
     if only_flow_edges:
         plt.title('Only flow edges are visualized', fontsize=16, loc='right')
@@ -341,7 +346,7 @@ def visualize_network_state(results_df_, iteration, only_flow_edges=False):
 
 #------------------------------------------------------------FROM HERE ONWARDS IS CODE FROM PROJECT THESIS------------------------------------------------------------
 
-def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=False, er_best_worst=False):
+def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=False, er_best_worst=False, print_output=False, SEED=42):
 
     results_df = pd.DataFrame(columns=['iteration', 'composite', 'robustness', 'reach', 'connectivity', 'composite_b', 'robustness_b', 'reach_b', 'connectivity_b'])
     results_best_worst_df = pd.DataFrame(columns=['iteration', 'best_entity', 'composite_best', 'worst_entity', 'composite_worst'])
@@ -351,7 +356,11 @@ def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=Fa
         largest_component = max(weakly_connected, key=len)
         largest_component_graph = G.subgraph(largest_component)
 
-        return len(largest_component), len(weakly_connected), len(list(nx.strongly_connected_components(G))), nx.average_shortest_path_length(largest_component_graph), nx.diameter(largest_component_graph.to_undirected()), np.average(np.array(list(list(dict(CCI(G)).values()))))
+        strongly_connected = list(nx.strongly_connected_components(G))
+        largest_strongly_connected = max(strongly_connected, key=len)
+        largest_strongly_connected_graph = G.subgraph(largest_strongly_connected)
+
+        return len(largest_component), len(weakly_connected), len(strongly_connected), nx.average_shortest_path_length(largest_strongly_connected_graph), nx.diameter(largest_component_graph.to_undirected()), np.average(np.array(list(list(dict(CCI(G)).values()))))
     
     def find_best_and_worst(find_best, current_graph, G_init, lcs, nwc, nsc, aspl, dia, comp_centrs, remove_node=True):
         best_score, worst_score = float('-inf'), float('inf')
@@ -401,7 +410,7 @@ def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=Fa
         r_worst = Gb_init.copy()
         lcs_BW, nwc_BW, nsc_BW, aspl_BW, dia_BW, comp_centrs_BW = lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, aspl_Gb_init, dia_Gb_init, comp_centrs_Gb_init
 
-    for i in range(k_removals + 1):  # Loop through k_removals + 1 iterations
+    for i in tqdm(range(k_removals + 1), desc='N-k iterations'):  # Loop through k_removals + 1 iterations
         b_connectedness_lst, b_robustness_lst, b_reach_lst, b_connectivity_lst = [], [], [], []
         r_connectedness_lst, r_robustness_lst, r_reach_lst, r_connectivity_lst = [], [], [], []
 
@@ -449,10 +458,11 @@ def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=Fa
                 for real_copy in r_graphs:  # Iterate through the instantiated copies
                     target = random.choice(list(real_copy.nodes() if remove == 'node' else real_copy.edges()))
 
-                    if remove == 'node':
-                        print('Node removed at random iteration '+str(i)+': '+str(target))
-                    else:
-                        print('Edge removed at random iteration '+str(i)+': '+str(target))
+                    if print_output:
+                        if remove == 'node':
+                            print('Node removed at random iteration '+str(i)+': '+str(target))
+                        else:
+                            print('Edge removed at random iteration '+str(i)+': '+str(target))
 
                     real_copy.remove_node(target) if remove == 'node' else real_copy.remove_edge(*target)
                     r_composite, r_robustness, r_reach, r_connectivity = GCI(real_copy, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centrs_G_init)
@@ -484,10 +494,11 @@ def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=Fa
             func = CCI_v if remove == 'node' else CCI_e
             target = func(G)
 
-            if remove == 'node':
-                print('Node removed at greedy iteration '+str(i)+': '+str(target))
-            else:
-                print('Edge removed at greedy iteration '+str(i)+': '+str(target))
+            if print_output:
+                if remove == 'node':
+                    print('Node removed at greedy iteration '+str(i)+': '+str(target))
+                else:
+                    print('Edge removed at greedy iteration '+str(i)+': '+str(target))
 
             G.remove_node(target) if remove == 'node' else G.remove_edge(*target)
             
@@ -511,11 +522,19 @@ def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=Fa
 def GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centr_G_init):
     largest_component_size, num_weakly_connected, num_strongly_connected, average_shortest_path_length, diameter, node_composite_centrality = get_connectedness_metrics_of(G)
 
+    if diameter == 0:
+        diameter = 1
+
     """
     RESILIENCE 
     Measures the network's resilience against random failures or targeted attacks. 
     It's approximated by the relative sizes of the largest connected component, weakly connected components, and strongly connected components.
     """
+    if num_weakly_connected == 0:
+        num_weakly_connected = 1
+    if num_strongly_connected == 0:
+        num_strongly_connected = 1
+        
     GCI_robustness = (largest_component_size / lcs_G_init) * (nwc_G_init / num_weakly_connected) * ( nsc_G_init / num_strongly_connected)
 
     """
@@ -597,14 +616,18 @@ def get_connectedness_metrics_of(G):
     - Node composite centrality
     """
     weakly_connected = list(nx.weakly_connected_components(G))
-    largest_component = max(weakly_connected, key=len)
+    largest_component = max(weakly_connected, key=len, default=[])
     largest_component_size = len(largest_component)
     num_weakly_connected = len(weakly_connected)
     num_strongly_connected = len(list(nx.strongly_connected_components(G)))
 
+    strongly_connected = list(nx.strongly_connected_components(G))
+    largest_strongly_connected = max(strongly_connected, key=len, default=[])
+    largest_strongly_connected_graph = G.subgraph(largest_strongly_connected)
+
     if largest_component_size > 1:
         largest_component_graph = G.subgraph(largest_component)
-        average_shortest_path_length = nx.average_shortest_path_length(largest_component_graph)
+        average_shortest_path_length = nx.average_shortest_path_length(largest_strongly_connected_graph)
         diameter = nx.diameter(largest_component_graph.to_undirected())
         node_composite_centrality = np.average(np.array(list(dict(CCI(G)).values())))
     else:
@@ -672,6 +695,38 @@ def plot_connectedness_fourway(results_dfs, titles):
     plt.tight_layout()
     plt.show()
 
+def compare_scigrid_entsog(data, metric=None):
+   
+    scigrid_columns = ['iteration_scigrid', 'composite_scigrid', 'robustness_scigrid', 'reach_scigrid', 'connectivity_scigrid']
+    entsog_columns = ['iteration_entsog', 'composite_entsog', 'robustness_entsog', 'reach_entsog', 'connectivity_entsog']
+
+    df = data.copy()
+
+    df['iteration_scigrid_scaled'] = (df['iteration_scigrid'] - df['iteration_scigrid'].min()) / (df['iteration_scigrid'].max() - df['iteration_scigrid'].min())
+    df['iteration_entsog_scaled'] = (df['iteration_entsog'] - df['iteration_entsog'].min()) / (df['iteration_entsog'].max() - df['iteration_entsog'].min())
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
+
+    if metric == None:
+        for i, col in enumerate(scigrid_columns[1:]):
+            plt.plot(df['iteration_scigrid_scaled'], df[col], label=col, linestyle='-', color=f'C{i}', linewidth=2)
+
+        # Plotting entsog
+        for i, col in enumerate(entsog_columns[1:]):
+            plt.plot(df['iteration_entsog_scaled'], df[col], label=col, linestyle='--', color=f'C{i}', linewidth=2)
+
+    else:
+        plt.plot(df['iteration_scigrid_scaled'], df[metric+'_scigrid'], label=metric+'_scigrid', linestyle='-', color='C0', linewidth=2)
+        plt.plot(df['iteration_entsog_scaled'], df[metric+'_entsog'], label=metric+'_entsog', linestyle='--', color='C0', linewidth=2)
+
+    plt.xlabel('Scaled Iteration')
+    plt.ylabel('Metrics')
+    plt.suptitle('N-k project thesis algorithm, Scigrid and Entsog comparison', x=.375)
+    plt.title(data.name, loc='left')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 
 
     
