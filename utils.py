@@ -272,6 +272,27 @@ def plot_biplot(results_df):
     plt.tight_layout()
     plt.show()
 
+def plot_heuristic_comparison_biplot(df_list, title_prefix=""):
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+
+    series_names = list(df_list[0].columns[:2])
+
+    for ax, series_name in zip(axes, series_names):
+        for df in df_list:
+            heuristic = str(df.iloc[1]['heuristic'])
+            remove = 'edge' if isinstance(df.iloc[1]['removed_entity'], tuple) else 'node'
+            ax.plot(df.index, df[series_name], marker='o', label=f'{heuristic} {remove} removals')
+
+        ax.set_xlabel('k iterations')
+        ax.set_ylabel(series_name.replace('_', ' '))
+        ax.set_title(f'{series_name.replace("_", " ").title()} vs k removals')
+
+        ax.legend()
+
+    plt.suptitle(title_prefix, x=0.12, ha='center', fontsize='x-large')
+    plt.tight_layout()
+    plt.show()
+
 def visualize_network_state(results_df_, iteration, only_flow_edges=False):
 
     if iteration > len(results_df_) - 1:
