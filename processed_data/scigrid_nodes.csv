@@ -737,11 +737,8 @@ N_kremenchuk,Kremenchuk,N_kremenchuk,49.0833,33.4167,UA,"Kremenchuk, Ukraine"
 N_russkaya,Russkaya,N_russkaya,44.5,39.5,RU,"Russkaya, Russia"
 N_poltava,Poltava,N_poltava,49.5883,34.5519,UA,"Poltava, Ukraine"
 N_orenburg,Orenburg,N_orenburg,51.7727,55.0988,RU,"Orenburg, Russia"
-N_P0725,Hassi R'Mel,N_P0725,32.955169,3.250837,DZ,This node was created to represent the start of the pipeline with ProjectID: P0725
+N_hassi,Hassi R'Mel,N_hassi,32.9333,3.2833,DZ,"Hassi R'Mel, Algeria"
 N_P0439,Mellitah Complex,N_P0439,32.9141632,12.113564,LY,This node was created to represent the start of the pipeline with ProjectID: P0439
-N_P2055,Hassi R'Mel,N_P2055,32.9361,3.2516,DZ,This node was created to represent the start of the pipeline with ProjectID: P2055
-N_P2056,Hassi R'Mel,N_P2056,32.9361,3.2516,DZ,This node was created to represent the start of the pipeline with ProjectID: P2056
-N_P0453,Hassi R'Mel,N_P0453,32.9358193,3.2514804,DZ,This node was created to represent the start of the pipeline with ProjectID: P0453
 N_P2326,"Mooni, Jõhvi",N_P2326,60.127659,30.336561,EE,This node was created to represent the start of the pipeline with ProjectID: P2326
 N_P2447,Zimogor'e,N_P2447,57.95168,33.27965,RU,This node was created to represent the start of the pipeline with ProjectID: P2447
 N_P0763,Georgia/Türkiye border (South Caucasus Gas Pipeline),N_P0763,41.6397,42.8279,GE,This node was created to represent the start of the pipeline with ProjectID: P0763
