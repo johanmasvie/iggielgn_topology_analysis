@@ -8,6 +8,8 @@ import numpy as np
 import networkx as nx
 import random
 import matplotlib.image as mpimg
+
+
 SEED=42
 month_map = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
 
@@ -42,210 +44,217 @@ def get_IGGIN_pipeline_data():
 
 ###------------------------------------------------------------FROM HERE ARE ALGORITHMS AND GETTERS------------------------------------------------------------###
 
-def max_flow(graph, sources, sinks, flow_func=nx.algorithms.flow.dinitz, capacity='capacity', show_plot=True):
-    import copy
-    import matplotlib.pyplot as plt
-    import matplotlib.image as mpimg
-    import networkx as nx
-    import numpy as np
+def add_super_source_sink(G, sources, sinks):
+    super_source = "super_source"
+    super_sink = "super_sink"
 
-    # Create a deep copy of the input graph
-    graph_ = graph.copy()
+    # Create super source and add edges to all source nodes
+    G.add_node(super_source)
+    for source in sources:
+        G.add_edge(super_source, source, capacity=10000)
 
-    def add_super_source_sink(graph, sources, sinks):
-        super_source = "super_source"
-        super_sink = "super_sink"
+    # Create super sink and add edges from all sink nodes
+    G.add_node(super_sink)
+    for sink in sinks:
+        G.add_edge(sink, super_sink, capacity=10000)
 
-        # Lookup the positions of country nodes for sources and sinks
-        source_positions = [graph.nodes[source]['pos'] for source in sources]
-        sink_positions = [graph.nodes[sink]['pos'] for sink in sinks]
-
-        # Calculate the average position of sources
-        avg_source_pos = np.mean(source_positions, axis=0)
-
-        # Calculate the average position of sinks
-        avg_sink_pos = np.mean(sink_positions, axis=0)
-
-        # Create super source and add edges to all source nodes
-        graph.add_node(super_source, pos=avg_source_pos)
-        for source in sources:
-            graph.add_edge(super_source, source, capacity=10000)
-
-        # Create super sink and add edges from all sink nodes
-        graph.add_node(super_sink, pos=avg_sink_pos)
-        for sink in sinks:
-            graph.add_edge(sink, super_sink, capacity=10000)
-
-        return super_source, super_sink
-
-    super_source, super_sink = add_super_source_sink(graph_, sources, sinks)
-
-    # Get the nodes that have 'is_country_node' == True but are not in sources or sinks
-    country_nodes_to_remove = [node for node in graph_.nodes if graph_.nodes[node].get('is_country_node') and node not in sources and node not in sinks]
-    graph_.remove_nodes_from(country_nodes_to_remove)
-
-    # Run max flow algorithm
-    flow_value, flow_dict = nx.maximum_flow(graph_, super_source, super_sink, capacity=capacity, flow_func=flow_func)
-
-    # Extract edges with non-zero flow
-    flow_edges = [(u, v) for u in flow_dict for v in flow_dict[u] if flow_dict[u][v] > 0]
-
-    if show_plot:
-        # Extract node positions if available
-        pos = nx.get_node_attributes(graph_, 'pos')
-
-        europe_map = mpimg.imread('Europe_blank_map.png')
-        # Use plt.imshow to display the background map
-        plt.figure(figsize=(15, 10))
-        plt.imshow(europe_map, extent=[-20, 40, 35, 70], alpha=0.5)
+    return super_source, super_sink
 
 
-        # Remove super source and sink from the graph before visualizing
-        graph_.remove_node(super_source)
-        graph_.remove_node(super_sink)
+def country_or_node_analysis(G, sources, sinks, all_to_all_flow):
+    """
+    Prepares the graph for analysis on country-level abstraction or 'sinks-to-sources' basis. 
+    """
+        
+    # Prepare graph for analysis on country-level abstraction
+    if any('is_country_node' in G.nodes[n] for n in G.nodes):
+        # Remove the country node abstractions from the graph
+        G.remove_nodes_from([n for n in G.nodes if G.nodes[n].get('is_country_node') and n not in sources and n not in sinks])
 
-        # Extract all edges and flow edges to visualize
-        all_edges_to_visualize = [(u, v) for u, v in graph_.edges if not graph_.nodes[v]['is_country_node'] and not graph_.nodes[u]['is_country_node']]
-        flow_edges_to_visualize = flow_edges.copy()
-        for (u, v) in flow_edges:
-            if u=='super_source' or v=='super_sink':
-                flow_edges_to_visualize.remove((u, v))
+    # Prepare graph for analysis on 'sinks-to-sources' basis
+    if all_to_all_flow:
+        if any('is_country_node' in G.nodes[n] for n in G.nodes):
+            # Remove the country node abstractions from the graph
+            G.remove_nodes_from([n for n in G.nodes if G.nodes[n].get('is_country_node')])
+
+        sources = [n for n in G.nodes() if G.in_degree(n) == 0 and G.out_degree(n) > 0]
+        sinks = [n for n in G.nodes() if G.out_degree(n) == 0 and G.in_degree(n) > 0]
+
+    return G, sources, sinks
+
+def add_country_node_abstraction(G):
+    G_with_country_nodes = G.copy()
+
+    country_positions = {}
+
+    for node_id, node_data in G_with_country_nodes.nodes(data=True):
+        country_code = node_data.get('country_code')
+        if country_code is not None:
+            country_code = str.strip(country_code.upper())
+        
+        if country_code not in country_positions:
+            country_positions[country_code] = []
+        country_positions[country_code].append(node_data['pos'])
+
+    for country_code, positions in country_positions.items():
+        average_position = np.mean(positions, axis=0)
+        G_with_country_nodes.add_node(country_code, pos=average_position, is_country_node=True, country_code=country_code)
+
+    for node_id, node_data in G_with_country_nodes.nodes(data=True):
+        if 'country_node' in node_data:
+            G_with_country_nodes.remove_node(node_id)
+
+    # Get the list of country nodes
+    country_nodes = [node_id for node_id, node_data in G_with_country_nodes.nodes(data=True) if node_data.get('is_country_node')]
+
+    # Iterate over each node in the graph
+    for node_id, node_data in G_with_country_nodes.nodes(data=True):
+        # Skip country nodes
+        if node_data.get('is_country_node'):
+            continue
+        
+        # Get the country code of the node
+        country_code = node_data.get('country_code')
+        
+        # Find the corresponding country super node
+        country_super_node = next((cn for cn in country_nodes if G_with_country_nodes.nodes[cn]['country_code'] == country_code), None)
+        
+        if country_super_node:
+            # Check if the node is a sink (only incoming edges)
+            if G_with_country_nodes.in_degree(node_id) > 0 and G_with_country_nodes.out_degree(node_id) == 0:
+                # Calculate the aggregate in-degree capacity of the child node
+                aggregate_in_capacity = sum(G_with_country_nodes.edges[neighbor, node_id]['capacity'] for neighbor in G_with_country_nodes.predecessors(node_id))
                 
-        # Draw nodes and edges on top of the map
-        nx.draw(graph_, 
-                pos=pos,
-                with_labels=False,
-                node_size=70,
-                node_color=['red' if node in sources else 'yellow' if node in sinks else 'lightblue' for node in graph_.nodes],
-                font_size=8,
-                font_color="black",
-                font_weight="bold",
-                arrowsize=10,
-                edge_color='gray',
-                edgelist=all_edges_to_visualize,
-                alpha=0.7)
-        
-        # Create a new graph_ with only relevant edges
-        nx.draw_networkx_edges(graph_, pos=pos, edgelist=flow_edges_to_visualize, edge_color='green', width=2)
-
-
-        title = f'Max Flow from {sources} to {sinks}: {flow_value:.1f}'
-        plt.title(title, fontsize=20)
-        plt.show()
-
-    return flow_value, flow_dict, flow_edges
-
-
-
-def create_graphs_from_dataset(df):
-    """
-    Creates a list of nx.MultiDiGraphs from the given dataset.
-    Each nx.MultiDiGraph represents a month-year combination.
-    """
-    graphs = []
-    mm_yyyy = df.iloc[:, df.columns.get_loc('Jan-10'):]
-
-    for index, row in df.iterrows():
-        seen_nonzero = False
-        for col in mm_yyyy.columns:
-            if row[col] == 0:
-                if not seen_nonzero:
-                    df.at[index, col] = -1
-            else:
-                seen_nonzero = True
-                if pd.isna(row[col]):
-                    df.at[index, col] = 0
-
-    for col in mm_yyyy.columns:
-        G = nx.MultiDiGraph(name=col)
-        non_zero_rows = df[(df[col] != -1) & (~df[col].isna())]
-
-        for _, row in non_zero_rows.iterrows():
-            borderpoint, exit_country, entry_country, max_flow, flow = row['Borderpoint'], row['Exit'], row['Entry'], row['MAXFLOW (Mm3/h)'], row[col]
-
-            if pd.isna(max_flow):
-                max_flow = row.drop(['Borderpoint', 'Exit', 'Entry', 'MAXFLOW (Mm3/h)']).max()
-
-            else:
-                month, year = col.split('-')
-                days_in_month = pd.Timestamp(year=int('20'+year), month=month_map[month], day=1).days_in_month
-                max_flow = float(max_flow) * 24 * days_in_month
-
-            G.add_node(exit_country)
-            G.add_node(entry_country)
-
-            G.add_edge(exit_country, entry_country, borderpoint=borderpoint, flow=flow, capacity=float(max_flow))
-
-        # Add ENTSOG 2024 supply and demand data as node attributes
-        G = add_node_attributes(G)
-
-        # Fix edge capacities if flow exceeds max flow
-        G = update_edge_capacities(G)
-
-        graphs.append(G)
-    return graphs
-
-def get_edge_data(graph):
-    edge_data = []
-
-    for edge in graph.edges(data=True):
-        source, target, edge_attributes = edge
-        borderpoint = edge_attributes.get('borderpoint', None)
-        max_flow = edge_attributes.get('capacity', None)
-        flow = edge_attributes.get('flow', None)
-
-        edge_data.append({'Source': source, 'Target': target, 'Borderpoint': borderpoint, 'Max Flow': max_flow, 'Flow': flow})
-
-    return pd.DataFrame(edge_data)
-
-def update_edge_capacities(graph):
-    for u, v, data in graph.edges(data=True):
-        flow = data['flow']
-        max_flow = data['capacity']
-        
-        if flow > max_flow:
-            data['capacity'] = flow
-    return graph
-
-def add_node_attributes(G):
-    node_data = pd.read_csv('./Data/ENTSOG_2024_Supply_Demand.csv')
-
-    for node in G.nodes():
-        if node in node_data['Country'].values:
-            node_attributes = node_data[node_data['Country'] == node].iloc[0]
-            attributes = {
-                'Total Demand': node_attributes['Total Demand (GWh)'],
-                'Summer Demand': node_attributes['Summer Demand (GWh)'],
-                'Winter Demand': node_attributes['Winter Demand (GWh)'],
-                'Max Production': node_attributes['Max Production (GWh/d)'],
-                'Storage Deliverability': node_attributes['Storage Capacities Deliverability (GWh/d)'],
-                'Storage Injection': node_attributes['Storage Capacities Injection (GWh/d)'],
-                'Storage WGV': node_attributes['Storage Capacities WGV (GWh)'],
-                'LNG Send-out': node_attributes['LNG Capacities Send-out (GWh/d)'],
-                'LNG Storage': node_attributes['LNG Capacities Storage (Mcm)'],
-                'Power Generation': node_attributes['Power Generation (MWe)']
-            }
-            nx.set_node_attributes(G, {node: attributes})
-    return G
-
-def get_node_data(G):
+                # Add an edge directed towards the country node from the node with the aggregate in-degree capacity
+                G_with_country_nodes.add_edge(node_id, country_super_node, capacity = aggregate_in_capacity)
+            
+            
+            # Check if the node is a source (only outgoing edges)
+            if G_with_country_nodes.in_degree(node_id) == 0 and G_with_country_nodes.out_degree(node_id) > 0:
+                # Calculate the aggregate out-degree capacity of the child node
+                aggregate_out_capacity = sum(G_with_country_nodes.edges[node_id, neighbor]['capacity'] for neighbor in G_with_country_nodes.successors(node_id))
+                
+                # Add an edge directed towards the node from the country node with the aggregate out-degree capacity
+                G_with_country_nodes.add_edge(country_super_node, node_id, capacity = aggregate_out_capacity) 
     
-    # Create a dataframe with the columns of the node attributes
-    col_names = []
-    for key, val in G.nodes.data():
-        if len(val) > 0:
-            for k, v in val.items():
-                col_names.append(k)
-            break
+    return G_with_country_nodes
 
-    # Populate the dataframe with the node attributes
-    node_df = pd.DataFrame(columns=['Country'] + list(col_names))
-    for node, attributes in G.nodes(data=True):
-        node_info = {'Country': node}
-        node_info.update(attributes)  
 
-        node_df = pd.concat([node_df, pd.DataFrame([node_info])], ignore_index=True)    
-    return node_df
+def max_flow_edge_count(G, prev_max_flow_vals, current_iteration):
+    """
+    Calculates the number of times each edge is part of the max flow path between any two nodes in the graph G. 
+
+    Runtime approx. -- minutes for N-k algorithm with complete dataset and 250 edge removals.
+    Runtime approx. 63 minutes for N-k algorithm with complete dataset and 250 node removals.
+    """
+
+    nodes = list(G.nodes)
+    nodes.remove('super_source')
+    nodes.remove('super_sink')
+    n = len(nodes)
+
+    edge_count = {(u, v): 0 for u, v in G.edges() if u not in ['super_source', 'super_sink'] and v not in ['super_sink', 'super_source']}
+    
+    for i in range(n):
+
+        # The current node
+        source = nodes[i]
+
+        # Skip nodes with out-degree 0
+        if G.out_degree(source) == 0:
+            continue        
+
+        for j in range(i+1, n):
+
+            # Node the max flow is calculated to
+            sink = nodes[j]
+            
+            if nx.has_path(G, source, sink):
+
+                # If the previous max flow value is 0, the flow will be 0 now as well and the edge count will be 0
+                if current_iteration > 1:
+                    if (source, sink) in prev_max_flow_vals and prev_max_flow_vals[(source, sink)] == 0:
+                        continue
+
+                flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d')
+                
+                prev_max_flow_vals[(source, sink)] = flow_value
+            
+                for u, flows in flow_dict.items():
+                    for v, flow in flows.items():
+                        if flow > 0:
+                            if (u, v) in edge_count:
+                                edge_count[(u, v)] += 1
+    
+    edge_count_raw = {k: v for k, v in edge_count.items()}
+    
+    edge_count_combined = {k: {'edge': k, 'max_flow_edge_count': v} for k, v in edge_count_raw.items()}
+    
+    df = pd.DataFrame.from_dict(edge_count_combined, orient='index').reset_index()
+
+    if df.empty:
+        return df, prev_max_flow_vals
+    
+    df.drop(columns=['level_0', 'level_1'], inplace=True)
+    
+    df = df.sort_values(by='max_flow_edge_count', ascending=False)
+    return df, prev_max_flow_vals
+
+def edge_cutset_count(G, observed_min_cutsets, current_iteration):
+    """
+    Calculates the number of times each edge is part of the minimum cutset between any two nodes in the graph G.
+
+    Runtime approx. 104 minutes for N-k algorithm with complete dataset and 250 iterations.
+    Runtime approx. 67 minutes for N-k algorithm with complete dataset and 250 node removals.
+
+    """
+    nodes = list(G.nodes)
+    n = len(nodes)
+
+    edge_cutset_count_ = {edge: 0 for edge in G.edges}
+
+    for i in tqdm(range(n), desc='Calculating min cutset count'):
+
+        source = nodes[i]
+
+        if source == 'super_source' or source == 'super_sink':
+            continue
+
+        if G.out_degree(source) == 0:
+            continue
+
+        for j in range(i+1, n):
+
+            sink = nodes[j]
+
+            if sink == 'super_source' or sink == 'super_sink':
+                continue
+
+            if nx.has_path(G, source, sink):
+
+                if source != sink:
+
+                    if current_iteration > 1:
+                        if observed_min_cutsets[(source, sink)] == 0:
+                            continue
+
+                    min_cutset = nx.minimum_edge_cut(G, source, sink)
+
+                    observed_min_cutsets[(source, sink)] = len(min_cutset)
+
+                    for edge in G.edges:
+                        if edge in min_cutset:
+                            edge_cutset_count_[edge] += 1
+
+    data = [{
+        'edge': edge,
+        'min_cutset_count': value,
+    } for edge, value in edge_cutset_count_.items()]
+
+    df = pd.DataFrame(data)
+    df = df.sort_values(by='min_cutset_count', ascending=False)
+
+    return df, observed_min_cutsets
 
 #------------------------------------------------------------FROM HERE ONWARDS ARE FUNCTIONS FOR PLOTTING------------------------------------------------------------
 
