@@ -543,7 +543,7 @@ def n_minus_k(G_, heuristic, remove, n_benchmarks=20, k_removals=250, exclude_be
         return worst_score, entity_
 
 
-    benchmark_graphs = [ER_benchmark(G) for _ in range(n_benchmarks)]
+    benchmark_graphs = [get_banchmark(G.to_undirected(), model='BA') for _ in range(n_benchmarks)]
     r_graphs = [G.copy() for _ in range(n_benchmarks)]
 
     lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centrs_G_init = assess_grid_connectedness_init(G)
@@ -820,26 +820,22 @@ def get_connectedness_metrics_of(G):
     return largest_component_size, num_weakly_connected, num_strongly_connected, average_shortest_path_length, diameter, node_composite_centrality
 
 
-def ER_benchmark(G):
+def get_banchmark(G, model):
     """
-    Generates and returns a random directed graph using the Erdős-Rényi model.
+    Generates and returns a benchmark graph based on the given model.
     """
-    n = len(G.nodes)
-    p = len(G.edges) / (n * (n - 1))
-    
-    return nx.erdos_renyi_graph(n, p, directed=True, seed=SEED)
+    if model == 'ER':
+        
+        n = len(G.nodes)
+        p = len(G.edges) / (n * (n - 1))
+        
+        return nx.erdos_renyi_graph(n, p, directed=True, seed=SEED)
 
-
-def ER_benchmark_with_capacity(G):
-    """
-    Generates and returns a random directed graph using the Erdős-Rényi model with edge capacities. 
-    """
-    er_graph = ER_benchmark()
-
-    for edge in er_graph.edges:
-        er_graph.edges[edge]['capacity'] = np.mean([G.edges[edge]['capacity'] for edge in G.edges])
-    
-    return er_graph
+    if model == 'BA':
+        n  = G.number_of_nodes()
+        e = G.number_of_edges()
+        m  = int(e / n)
+        return nx.barabasi_albert_graph(n, m)
 
 def compare_scigrid_entsog(data, metric=None):
    
