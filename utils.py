@@ -12,6 +12,9 @@ import matplotlib.image as mpimg
 
 SEED=42
 month_map = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
+SUP_TITLE_X, SUP_TITLE_HA, SUP_TITLE_FONTSIZE = 0.12, 'center', 'x-large'
+SUB_PLOTS_FIGSIZE = (12, 6)
+
 
 ###------------------------------------------------------------FROM HERE ARE FUNCTIONS TO LOAD DATA------------------------------------------------------------###
 
@@ -140,12 +143,15 @@ def add_country_node_abstraction(G):
     return G_with_country_nodes
 
 
-def max_flow_edge_count(G, prev_max_flow_vals, current_iteration):
+def max_flow_edge_count(G, prev_max_flow_vals, current_iteration, count_or_flow='count'):
     """
     Calculates the number of times each edge is part of the max flow path between any two nodes in the graph G. 
 
-    Runtime approx. -- minutes for N-k algorithm with complete dataset and 250 edge removals.
-    Runtime approx. 63 minutes for N-k algorithm with complete dataset and 250 node removals.
+    Runtime approx. 63 minutes for N-k algorithm with complete dataset and 250 node removals, count_or_flow='count'.
+    Runtime approx. -- minutes for N-k algorithm with complete dataset and 250 edge removals,  count_or_flow='count'.
+
+    Runtime approx. 65 minutes for N-k algorithm with complete dataset and 250 node removals, count_or_flow='flow'.
+    Runtime approx. 92 minutes for N-k algorithm with complete dataset and 250 edge removals, count_or_flow='flow'.
     """
 
     nodes = list(G.nodes)
@@ -182,9 +188,17 @@ def max_flow_edge_count(G, prev_max_flow_vals, current_iteration):
             
                 for u, flows in flow_dict.items():
                     for v, flow in flows.items():
+                        
+                        if count_or_flow == 'flow':
+                            if (u, v) in edge_count:
+                                edge_count[(u, v)] += flow
+                                continue
+
                         if flow > 0:
                             if (u, v) in edge_count:
-                                edge_count[(u, v)] += 1
+                                if count_or_flow == 'count':
+                                    edge_count[(u, v)] += 1
+                                
     
     edge_count_raw = {k: v for k, v in edge_count.items()}
     
@@ -202,6 +216,7 @@ def max_flow_edge_count(G, prev_max_flow_vals, current_iteration):
 
 def edge_cutset_count(G, observed_min_cutsets, current_iteration):
     """
+    # TODO: something wonky about this heuristic?
     Calculates the number of times each edge is part of the minimum cutset between any two nodes in the graph G.
 
     Runtime approx. 104 minutes for N-k algorithm with complete dataset and 250 iterations.
@@ -256,14 +271,70 @@ def edge_cutset_count(G, observed_min_cutsets, current_iteration):
 
     return df, observed_min_cutsets
 
+
+def weighted_flow_capacity_rate(G):
+    """ 
+    Calculates the Weighted Flow Capacity Robustness (WFCR) of the graph G.    
+    Runtime 71m for N-k algorithm with complete dataset and 250 node removals.
+    """
+
+    nodes = list(G.nodes)
+    n = len(nodes)
+
+    edge_WFCR = {}
+    tot_flow = 0
+
+    for i in tqdm(range(n), desc='Calculating wfcr'):
+
+        source = nodes[i]
+        if source == 'super_source' or source == 'super_sink':
+            continue
+
+        for j in range(i + 1, n):
+
+            sink = nodes[j]
+
+            if sink == 'super_source' or sink == 'super_sink':
+                    continue
+
+
+            if nx.has_path(G, source, nodes[j]):
+                
+                flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d')
+                tot_flow += flow_value
+                
+                for u, flows in flow_dict.items():
+                    for v, flow in flows.items():
+                        if flow > 0:
+                            if (u, v) in G.edges:
+                                capacity = G.edges[(u, v)]['max_cap_M_m3_per_d']
+                            
+                            if capacity > 0:  
+                                edge_WFCR[(u, v)] = edge_WFCR.get((u, v), 0) + (flow ** 2) / capacity
+                            else:
+                                pass
+
+    if tot_flow == 0:
+        return pd.DataFrame()
+    
+    data = [{
+        'edge': k,
+        'wfcr': v / (n * (n - 1) * tot_flow),
+    } for k, v in edge_WFCR.items()]
+
+    df = pd.DataFrame(data)
+    df = df.sort_values(by='wfcr', ascending=False)
+
+    return df
+
 #------------------------------------------------------------FROM HERE ONWARDS ARE FUNCTIONS FOR PLOTTING------------------------------------------------------------
 
-def plot_biplot(results_df):
+def plot_biplot(results_df, title_prefix=""):
 
     heuristic = str(results_df.iloc[1]['heuristic'])
     remove = 'edge' if isinstance(results_df.iloc[1]['removed_entity'], tuple) else 'node'
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=SUB_PLOTS_FIGSIZE)
 
     # Plot max_flow value versus k iterations
     ax1.plot(results_df.index, results_df['max_flow_value'], marker='o')
@@ -277,12 +348,12 @@ def plot_biplot(results_df):
     ax2.set_ylabel('capacity_robustness')
     ax2.set_title('Capacity Robustness vs k ' + heuristic + ' ' + remove + ' removals')
 
-
+    plt.suptitle(title_prefix, x=SUP_TITLE_X, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
     plt.tight_layout()
     plt.show()
 
 def plot_heuristic_comparison_biplot(df_list, title_prefix=""):
-    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+    fig, axes = plt.subplots(1, 2, figsize=SUB_PLOTS_FIGSIZE)
 
     series_names = list(df_list[0].columns[:2])
 
@@ -298,9 +369,51 @@ def plot_heuristic_comparison_biplot(df_list, title_prefix=""):
 
         ax.legend()
 
-    plt.suptitle(title_prefix, x=0.12, ha='center', fontsize='x-large')
+    plt.suptitle(title_prefix, x=SUP_TITLE_X, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
     plt.tight_layout()
     plt.show()
+
+def plot_connectedness_fourway(results_dfs, titles, title_prefix=""):
+    colors_set1 = ['peachpuff', 'powderblue']  
+    colors_set2 = ['orange', 'dodgerblue']  
+    
+    fig, axs = plt.subplots(2, 2, figsize=SUB_PLOTS_FIGSIZE)
+    axs = axs.flatten()
+
+    metric_columns_list = [['composite', 'composite'], ['robustness', 'robustness'], ['reach', 'reach'], ['connectivity', 'connectivity']]
+    benchmark_columns_list = [['composite_b', 'composite_b'], ['robustness_b', 'robustness_b'], ['reach_b', 'reach_b'], ['connectivity_b', 'connectivity_b']]
+    metric_labels_list = [['Real grid random', 'Real grid greedy'], ['Real grid random', 'Real grid greedy'], ['Real grid random', 'Real grid greedy'], ['Real grid random', 'Real grid greedy']]
+    benchmark_labels_list = [['ER grid random', 'ER grid greedy'], ['ER grid random', 'ER grid greedy'], ['ER grid random', 'ER grid greedy'], ['ER grid random', 'ER grid greedy']]
+    ylabel = ['connectedness', 'robustness', 'reach', 'connectivity']
+    
+    for i, ax in enumerate(axs):
+        metric_columns = metric_columns_list[i]
+        benchmark_columns = benchmark_columns_list[i]
+        metric_labels = metric_labels_list[i]
+        benchmark_labels = benchmark_labels_list[i]
+        
+        for j, results_df in enumerate(results_dfs):
+            if j == 0:
+                ax.plot(results_df['iteration'], results_df[metric_columns[j]], marker='o', label=metric_labels[j], color=colors_set1[0])
+                ax.plot(results_df['iteration'], results_df[benchmark_columns[j]], marker='o', label=benchmark_labels[j], color=colors_set1[1])
+            else:
+                ax.plot(results_df['iteration'], results_df[metric_columns[j]], marker='o', label=metric_labels[j], color=colors_set2[0])
+                ax.plot(results_df['iteration'], results_df[benchmark_columns[j]], marker='o', label=benchmark_labels[j], color=colors_set2[1])
+        
+        ax.set_xlabel('k iterations')
+        ax.set_ylabel(ylabel[i])
+        ax.grid(True)
+        ax.set_title(titles[i])  
+        
+        if i == 0:
+            ax.legend()
+        
+    plt.suptitle(title_prefix, x=SUP_TITLE_X, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
+    plt.tight_layout()
+    plt.show()
+
+
+
 
 def visualize_network_state(results_df_, iteration, only_flow_edges=False):
 
@@ -376,9 +489,11 @@ def visualize_network_state(results_df_, iteration, only_flow_edges=False):
 
 #------------------------------------------------------------FROM HERE ONWARDS IS CODE FROM PROJECT THESIS------------------------------------------------------------
 
-def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=False, er_best_worst=False, print_output=False, SEED=42):
+def n_minus_k(G_, heuristic, remove, n_benchmarks=20, k_removals=250, best_worst_case=False, er_best_worst=False, print_output=False, SEED=42):
 
-    results_df = pd.DataFrame(columns=['iteration', 'composite', 'robustness', 'reach', 'connectivity', 'composite_b', 'robustness_b', 'reach_b', 'connectivity_b'])
+    G = G_.copy()
+
+    results_df = pd.DataFrame(columns=['iteration', 'removed_entity', 'composite', 'robustness', 'reach', 'connectivity', 'composite_b', 'robustness_b', 'reach_b', 'connectivity_b'])
     results_best_worst_df = pd.DataFrame(columns=['iteration', 'best_entity', 'composite_best', 'worst_entity', 'composite_worst'])
 
     def assess_grid_connectedness_init(G):
@@ -440,7 +555,7 @@ def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=Fa
         r_worst = Gb_init.copy()
         lcs_BW, nwc_BW, nsc_BW, aspl_BW, dia_BW, comp_centrs_BW = lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, aspl_Gb_init, dia_Gb_init, comp_centrs_Gb_init
 
-    for i in tqdm(range(k_removals + 1), desc='N-k iterations'):  # Loop through k_removals + 1 iterations
+    for i in tqdm(range(0, k_removals + 1), desc='N-k iterations'):  # Loop through k_removals + 1 iterations
         b_connectedness_lst, b_robustness_lst, b_reach_lst, b_connectivity_lst = [], [], [], []
         r_connectedness_lst, r_robustness_lst, r_reach_lst, r_connectivity_lst = [], [], [], []
 
@@ -449,7 +564,7 @@ def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=Fa
             composite, robustness, reach, connectivity = GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centrs_G_init)
             composite_b, robustness_b, reach_b, connectivity_b = GCI(benchmark_graphs[0], Gb_init, lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, aspl_Gb_init, dia_Gb_init, comp_centrs_Gb_init)
             
-            results_df.loc[i] = [i, composite, robustness, reach, connectivity, composite_b, robustness_b, reach_b, connectivity_b]
+            results_df.loc[i] = [i, None, composite, robustness, reach, connectivity, composite_b, robustness_b, reach_b, connectivity_b]
             results_best_worst_df.loc[i] = [i, None, composite, None, composite]
             continue  
 
@@ -514,7 +629,7 @@ def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=Fa
                     b_reach_lst.append(b_reach)
                     b_connectivity_lst.append(b_connectivity)
 
-                results_df.loc[i] = [i, 
+                results_df.loc[i] = [i, None,
                                     sum(r_connectedness_lst) / len(r_connectedness_lst), sum(r_robustness_lst) / len(r_robustness_lst), sum(r_reach_lst) / len(r_reach_lst), sum(r_connectivity_lst) / len(r_connectivity_lst), 
                                     sum(b_connectedness_lst) / len(b_connectedness_lst), sum(b_robustness_lst) / len(b_robustness_lst), sum(b_reach_lst) / len(b_reach_lst), sum(b_connectivity_lst) / len(b_connectivity_lst)]
 
@@ -545,7 +660,8 @@ def n_minus_k(G, n_benchmarks, k_removals, heuristic, remove, best_worst_case=Fa
                 b_reach_lst.append(b_reach)
                 b_connectivity_lst.append(b_connectivity)
 
-            results_df.loc[i] = [i, composite, robustness, reach, connectivity, sum(b_connectedness_lst) / len(b_connectedness_lst), sum(b_robustness_lst) / len(b_robustness_lst), sum(b_reach_lst) / len(b_reach_lst), sum(b_connectivity_lst) / len(b_connectivity_lst)]
+            target = target if remove == 'node' else set(target)
+            results_df.loc[i] = [i, target, composite, robustness, reach, connectivity, sum(b_connectedness_lst) / len(b_connectedness_lst), sum(b_robustness_lst) / len(b_robustness_lst), sum(b_reach_lst) / len(b_reach_lst), sum(b_connectivity_lst) / len(b_connectivity_lst)]
 
     return results_df, results_best_worst_df
 
@@ -559,20 +675,25 @@ def GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, 
     RESILIENCE 
     Measures the network's resilience against random failures or targeted attacks. 
     It's approximated by the relative sizes of the largest connected component, weakly connected components, and strongly connected components.
+
+    # CHANGE FROM PROJECT THESIS: instead of multiplying the indices, we take the geometric mean of the indices
     """
     if num_weakly_connected == 0:
         num_weakly_connected = 1
     if num_strongly_connected == 0:
         num_strongly_connected = 1
         
-    GCI_robustness = (largest_component_size / lcs_G_init) * (nwc_G_init / num_weakly_connected) * ( nsc_G_init / num_strongly_connected)
+    GCI_robustness = ((largest_component_size / lcs_G_init) * (nwc_G_init / num_weakly_connected) * ( nsc_G_init / num_strongly_connected))**(1/3)
 
     """
     REACH 
     Quantifies the efficiency of information flow or reachability across the network. 
     It's reflected in the ratio of current average shortest path length and network diameter in comparison to their initial values.
+
+    # CHANGE FROM PROJECT THESIS: instead of multiplying the indices, we take the geometric mean of the indices
+
     """
-    GCI_reach = (average_shortest_path_length / aspl_G_init) * ((G.number_of_edges() / diameter) / (G_init.number_of_edges() / dia_G_init))
+    GCI_reach = ((average_shortest_path_length / aspl_G_init) * ((G.number_of_edges() / diameter) / (G_init.number_of_edges() / dia_G_init)))**(1/3)
 
 
     """
@@ -585,8 +706,11 @@ def GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, 
 
     """
     Calculate the composite connectedness index using the above calculated indices
+
+    # CHANGE FROM PROJECT THESIS: instead of multiplying the indices, we take the geometric mean of the indices
+
     """
-    GCI = GCI_robustness * GCI_reach * GCI_connectivity
+    GCI = (GCI_robustness * GCI_reach * GCI_connectivity)**(1/3)
     
     return GCI, GCI_robustness, GCI_reach, GCI_connectivity
 
@@ -687,44 +811,6 @@ def ER_benchmark_with_capacity(G):
     
     return er_graph
 
-def plot_connectedness_fourway(results_dfs, titles):
-    colors_set1 = ['peachpuff', 'powderblue']  # Custom colors for the first set of data
-    colors_set2 = ['orange', 'dodgerblue']  # Custom colors for the second set of data
-    
-    fig, axs = plt.subplots(2, 2, figsize=(12, 8))
-    axs = axs.flatten()
-
-    metric_columns_list = [['composite', 'composite'], ['robustness', 'robustness'], ['reach', 'reach'], ['connectivity', 'connectivity']]
-    benchmark_columns_list = [['composite_b', 'composite_b'], ['robustness_b', 'robustness_b'], ['reach_b', 'reach_b'], ['connectivity_b', 'connectivity_b']]
-    metric_labels_list = [['Real grid random', 'Real grid greedy'], ['Real grid random', 'Real grid greedy'], ['Real grid random', 'Real grid greedy'], ['Real grid random', 'Real grid greedy']]
-    benchmark_labels_list = [['ER grid random', 'ER grid greedy'], ['ER grid random', 'ER grid greedy'], ['ER grid random', 'ER grid greedy'], ['ER grid random', 'ER grid greedy']]
-    ylabel = ['connectedness', 'robustness', 'reach', 'connectivity']
-    
-    for i, ax in enumerate(axs):
-        metric_columns = metric_columns_list[i]
-        benchmark_columns = benchmark_columns_list[i]
-        metric_labels = metric_labels_list[i]
-        benchmark_labels = benchmark_labels_list[i]
-        
-        for j, results_df in enumerate(results_dfs):
-            if j == 0:
-                ax.plot(results_df['iteration'], results_df[metric_columns[j]], marker='o', label=metric_labels[j], color=colors_set1[0])
-                ax.plot(results_df['iteration'], results_df[benchmark_columns[j]], marker='o', label=benchmark_labels[j], color=colors_set1[1])
-            else:
-                ax.plot(results_df['iteration'], results_df[metric_columns[j]], marker='o', label=metric_labels[j], color=colors_set2[0])
-                ax.plot(results_df['iteration'], results_df[benchmark_columns[j]], marker='o', label=benchmark_labels[j], color=colors_set2[1])
-        
-        ax.set_xlabel('k iterations', fontsize=14)
-        ax.set_ylabel(ylabel[i], fontsize=14)
-        ax.grid(True)
-        ax.set_title(titles[i], fontsize=16)  
-        
-        if i == 0:
-            ax.legend()
-        
-    plt.tight_layout()
-    plt.show()
-
 def compare_scigrid_entsog(data, metric=None):
    
     scigrid_columns = ['iteration_scigrid', 'composite_scigrid', 'robustness_scigrid', 'reach_scigrid', 'connectivity_scigrid']
@@ -757,6 +843,61 @@ def compare_scigrid_entsog(data, metric=None):
     plt.legend()
     plt.grid(True)
     plt.show()
+
+
+#------------------------------------------------------------FROM HERE ONWARDS ARE FUNCTIONS FOR RESULTS ANALYSIS------------------------------------------------------------
+
+
+def results_summary(df_, metric='', abs_or_pct='abs'):
+
+    df = df_.copy()
+
+    heuristic = 'entity criticality index'
+    if 'max_flow_value' in df.columns:
+        metric = 'max_flow_value'
+        heuristic = df.iloc[1]['heuristic']
+
+    zero_metric_iteration = df[df[metric] == 0].index.min()
+
+    
+    # Calculate differences between consecutive rows for the metric
+    df['diff'] = round(df[metric].diff() * (-1), 2) 
+    df['pct_change'] = round((df['diff'] / df[metric].shift(1))*-100, 1)
+    df['it'] = df.index 
+
+    if heuristic is not None:
+        print(f"Heuristic: {heuristic}")
+
+    print()
+
+    print("First entity removals:")
+    print('----------------------------------------------')
+    print(df[['it', 'removed_entity', 'diff', 'pct_change']].iloc[1:6].to_string(index=False))
+
+    print()
+
+    df = df.nlargest(5, 'diff')
+    if abs_or_pct == 'pct':
+        df = df.nlargest(5, 'pct_diff')
+
+    print(f"Entity removals causing most damage, measured by: {metric}")
+    print('----------------------------------------------')
+    print(df[['it', 'removed_entity', 'diff', 'pct_change']].to_string(index=False))
+
+    print()
+    print()
+
+    print("Summary statistics (first 250 removals)")
+    print('----------------------------------------------')
+
+    # Calculate the percentage loss of total max flow based on first and last row
+    initial_max_flow = df_.loc[0, metric]
+    final_max_flow = df_.loc[df_.index[-1], metric]
+    print(f"Percentage network damage: {round(((initial_max_flow - final_max_flow) / initial_max_flow) * 100, 1)}%")
+    print(f"Mean damage per entity removal: {round(df.head(250)['diff'].mean(), 2)}")
+    print(f"Variation in damage per entity removal: {round(df.head(250)['diff'].std(), 2)}")
+    if not pd.isna(zero_metric_iteration):
+        print(f"The metric reaches 0 at iteration {zero_metric_iteration}.")
 
 
     
