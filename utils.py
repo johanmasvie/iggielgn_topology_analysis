@@ -184,6 +184,10 @@ def max_flow_edge_count(G, count_or_flow='count'):
 
                             if flow > 0 and count_or_flow == 'count':
                                 edge_count[(u, v)] += 1
+                                continue
+
+                            if flow > 0 and count_or_flow == 'load_rate':
+                                edge_count[(u, v)] += (flow / G.edges[(u, v)]['max_cap_M_m3_per_d'])
 
                     continue          
     
