@@ -143,15 +143,23 @@ def add_country_node_abstraction(G):
     return G_with_country_nodes
 
 
-def max_flow_edge_count(G, count_or_flow='count'):
+def max_flow_edge_count(G, prev_max_flow_vals, current_iteration, count_or_flow='count'):
     """
     Calculates the number of times each edge is part of the max flow path between any two nodes in the graph G. 
+
+    Runtime approx. 63 minutes for N-k algorithm with complete dataset and 250 node removals, count_or_flow='count'.
+    Runtime approx. -- minutes for N-k algorithm with complete dataset and 250 edge removals,  count_or_flow='count'.
+
+    Runtime approx. 65 minutes for N-k algorithm with complete dataset and 250 node removals, count_or_flow='flow'.
+    Runtime approx. 92 minutes for N-k algorithm with complete dataset and 250 edge removals, count_or_flow='flow'.
     """
 
     nodes = list(G.nodes)
+    nodes.remove('super_source')
+    nodes.remove('super_sink')
     n = len(nodes)
 
-    edge_count = {}
+    edge_count = {(u, v): 0 for u, v in G.edges() if u not in ['super_source', 'super_sink'] and v not in ['super_sink', 'super_source']}
     
     for i in range(n):
 
@@ -162,34 +170,35 @@ def max_flow_edge_count(G, count_or_flow='count'):
         if G.out_degree(source) == 0:
             continue        
 
-        for j in range(n):
+        for j in range(i+1, n):
 
             # Node the max flow is calculated to
             sink = nodes[j]
-
-            if source != sink and (source, sink) in G.edges:
             
-                if nx.has_path(G, source, sink):
+            if nx.has_path(G, source, sink):
 
-                    flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d')
-                                    
-                    for u, flows in flow_dict.items():
-                        for v, flow in flows.items():
-                            if (u, v) not in edge_count:
-                                edge_count[(u, v)] = 0
-                            
-                            if count_or_flow == 'flow':
+                # If the previous max flow value is 0, the flow will be 0 now as well and the edge count will be 0
+                if current_iteration > 1:
+                    if (source, sink) in prev_max_flow_vals and prev_max_flow_vals[(source, sink)] == 0:
+                        continue
+
+                flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d')
+                
+                prev_max_flow_vals[(source, sink)] = flow_value
+            
+                for u, flows in flow_dict.items():
+                    for v, flow in flows.items():
+                        
+                        if count_or_flow == 'flow':
+                            if (u, v) in edge_count:
                                 edge_count[(u, v)] += flow
                                 continue
 
-                            if flow > 0 and count_or_flow == 'count':
-                                edge_count[(u, v)] += 1
-                                continue
-
-                            if flow > 0 and count_or_flow == 'load_rate':
-                                edge_count[(u, v)] += (flow / G.edges[(u, v)]['max_cap_M_m3_per_d'])
-
-                    continue          
+                        if flow > 0:
+                            if (u, v) in edge_count:
+                                if count_or_flow == 'count':
+                                    edge_count[(u, v)] += 1
+                                
     
     edge_count_raw = {k: v for k, v in edge_count.items()}
     
@@ -198,16 +207,20 @@ def max_flow_edge_count(G, count_or_flow='count'):
     df = pd.DataFrame.from_dict(edge_count_combined, orient='index').reset_index()
 
     if df.empty:
-        return df
+        return df, prev_max_flow_vals
     
     df.drop(columns=['level_0', 'level_1'], inplace=True)
     
     df = df.sort_values(by='max_flow_edge_count', ascending=False)
-    return df
+    return df, prev_max_flow_vals
 
 def edge_cutset_count(G, observed_min_cutsets, current_iteration):
     """
+    # TODO: something wonky about this heuristic?
     Calculates the number of times each edge is part of the minimum cutset between any two nodes in the graph G.
+
+    Runtime approx. 104 minutes for N-k algorithm with complete dataset and 250 iterations.
+    Runtime approx. 67 minutes for N-k algorithm with complete dataset and 250 node removals.
 
     """
     nodes = list(G.nodes)
@@ -219,41 +232,39 @@ def edge_cutset_count(G, observed_min_cutsets, current_iteration):
 
         source = nodes[i]
 
+        if source == 'super_source' or source == 'super_sink':
+            continue
+
         if G.out_degree(source) == 0:
             continue
 
-        for j in range(n):
+        for j in range(i+1, n):
 
             sink = nodes[j]
 
-            if source != sink and (source, sink) in G.edges:
+            if sink == 'super_source' or sink == 'super_sink':
+                continue
 
-                if nx.has_path(G, source, sink):
+            if nx.has_path(G, source, sink):
 
-                    if source != sink:
+                if source != sink:
 
-                        if current_iteration > 1:
-                            if observed_min_cutsets[(source, sink)] == 0:
-                                continue
+                    if current_iteration > 1:
+                        if observed_min_cutsets[(source, sink)] == 0:
+                            continue
 
-                        min_cutset = nx.minimum_edge_cut(G, source, sink)
+                    min_cutset = nx.minimum_edge_cut(G, source, sink)
 
-                        observed_min_cutsets[(source, sink)] = len(min_cutset)
+                    observed_min_cutsets[(source, sink)] = len(min_cutset)
 
-                        for edge in G.edges:
-                            if edge in min_cutset:
-                                edge_cutset_count_[edge] += 1
-                    continue
-
-            observed_min_cutsets[(source, sink)] = 0
+                    for edge in G.edges:
+                        if edge in min_cutset:
+                            edge_cutset_count_[edge] += 1
 
     data = [{
         'edge': edge,
         'min_cutset_count': value,
     } for edge, value in edge_cutset_count_.items()]
-
-    if not data:
-        return pd.DataFrame(), observed_min_cutsets
 
     df = pd.DataFrame(data)
     df = df.sort_values(by='min_cutset_count', ascending=False)
@@ -264,6 +275,7 @@ def edge_cutset_count(G, observed_min_cutsets, current_iteration):
 def weighted_flow_capacity_rate(G):
     """ 
     Calculates the Weighted Flow Capacity Robustness (WFCR) of the graph G.    
+    Runtime 71m for N-k algorithm with complete dataset and 250 node removals.
     """
 
     nodes = list(G.nodes)
@@ -275,31 +287,32 @@ def weighted_flow_capacity_rate(G):
     for i in tqdm(range(n), desc='Calculating wfcr'):
 
         source = nodes[i]
-
-        if G.out_degree(source) == 0:
+        if source == 'super_source' or source == 'super_sink':
             continue
 
-        for j in range(n):
+        for j in range(i + 1, n):
 
             sink = nodes[j]
 
-            if source != sink and (source, sink) in G.edges:
+            if sink == 'super_source' or sink == 'super_sink':
+                    continue
 
-                if nx.has_path(G, source, sink):
-                    
-                    flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d')
-                    tot_flow += flow_value
-                    
-                    for u, flows in flow_dict.items():
-                        for v, flow in flows.items():
-                            if flow > 0:
-                                if (u, v) in G.edges:
-                                    capacity = G.edges[(u, v)]['max_cap_M_m3_per_d']
-                                
-                                if capacity > 0:  
-                                    edge_WFCR[(u, v)] = edge_WFCR.get((u, v), 0) + (flow ** 2) / capacity
-                                else:
-                                    pass
+
+            if nx.has_path(G, source, nodes[j]):
+                
+                flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d')
+                tot_flow += flow_value
+                
+                for u, flows in flow_dict.items():
+                    for v, flow in flows.items():
+                        if flow > 0:
+                            if (u, v) in G.edges:
+                                capacity = G.edges[(u, v)]['max_cap_M_m3_per_d']
+                            
+                            if capacity > 0:  
+                                edge_WFCR[(u, v)] = edge_WFCR.get((u, v), 0) + (flow ** 2) / capacity
+                            else:
+                                pass
 
     if tot_flow == 0:
         return pd.DataFrame()
@@ -347,7 +360,7 @@ def plot_heuristic_comparison_biplot(df_list, title_prefix=""):
     for ax, series_name in zip(axes, series_names):
         for df in df_list:
             heuristic = str(df.iloc[1]['heuristic'])
-            remove = 'edge' if isinstance(df.iloc[1]['removed_entity'], set) else 'node'
+            remove = 'edge' if isinstance(df.iloc[1]['removed_entity'], tuple) else 'node'
             ax.plot(df.index, df[series_name], marker='o', label=f'{heuristic} {remove} removals')
 
         ax.set_xlabel('k iterations')
@@ -900,7 +913,7 @@ def results_summary(df_, metric='', abs_or_pct='abs'):
     print()
     print()
 
-    print("Summary statistics (first 150 removals)")
+    print("Summary statistics (first 250 removals)")
     print('----------------------------------------------')
 
     # Calculate the percentage loss of total max flow based on first and last row
