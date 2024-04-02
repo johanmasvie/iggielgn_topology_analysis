@@ -16,34 +16,6 @@ SUP_TITLE_X, SUP_TITLE_HA, SUP_TITLE_FONTSIZE = 0.12, 'center', 'x-large'
 SUB_PLOTS_FIGSIZE = (12, 6)
 
 
-###------------------------------------------------------------FROM HERE ARE FUNCTIONS TO LOAD DATA------------------------------------------------------------###
-
-def get_IGGIN_pipeline_data():
-    """
-    Loads the IGGIN pipeline dataset and returns it as a pandas DataFrame.
-    """
-    def process_column(df, column, prefix=''):
-        df[column] = df[column].apply(lambda x: json.loads(x.replace("'", '"')))
-        normalized_df = pd.json_normalize(df[column])
-        normalized_df.columns = [f'{prefix}{col}' for col in normalized_df.columns]
-        df = df.drop(columns=[column]).join(normalized_df)
-        return df
-
-    pipelines_gdf = gpd.read_file('Scigrid_data/IGGIN_PipeSegments.csv')
-
-    pipelines_gdf = process_column(pipelines_gdf, 'param')
-    pipelines_gdf = process_column(pipelines_gdf, 'uncertainty', 'uncertainty_')
-    pipelines_gdf = process_column(pipelines_gdf, 'method', 'method_')
-
-    columns_to_split = ['country_code', 'node_id']
-    for column in columns_to_split:
-        pipelines_gdf[column] = pipelines_gdf[column].apply(lambda x: x.replace('[', '').replace(']', '').replace("'", '').split(', '))
-        split_df = pd.DataFrame(pipelines_gdf[column].to_list(), columns=[f'{column}_1', f'{column}_2'])
-        pipelines_gdf = pipelines_gdf.drop(columns=[column]).join(split_df)
-
-    return pipelines_gdf
-
-
 
 ###------------------------------------------------------------FROM HERE ARE ALGORITHMS AND GETTERS------------------------------------------------------------###
 
@@ -144,16 +116,6 @@ def add_country_node_abstraction(G):
 
 
 def max_flow_edge_count(G, prev_max_flow_vals, current_iteration, count_or_flow='count'):
-    """
-    Calculates the number of times each edge is part of the max flow path between any two nodes in the graph G. 
-
-    Runtime approx. 63 minutes for N-k algorithm with complete dataset and 250 node removals, count_or_flow='count'.
-    Runtime approx. -- minutes for N-k algorithm with complete dataset and 250 edge removals,  count_or_flow='count'.
-
-    Runtime approx. 65 minutes for N-k algorithm with complete dataset and 250 node removals, count_or_flow='flow'.
-    Runtime approx. 92 minutes for N-k algorithm with complete dataset and 250 edge removals, count_or_flow='flow'.
-    """
-
     nodes = list(G.nodes)
     nodes.remove('super_source')
     nodes.remove('super_sink')
@@ -170,10 +132,13 @@ def max_flow_edge_count(G, prev_max_flow_vals, current_iteration, count_or_flow=
         if G.out_degree(source) == 0:
             continue        
 
-        for j in range(i+1, n):
+        for j in range(n):
 
             # Node the max flow is calculated to
             sink = nodes[j]
+
+            if sink == source:
+                continue
             
             if nx.has_path(G, source, sink):
 
@@ -182,7 +147,10 @@ def max_flow_edge_count(G, prev_max_flow_vals, current_iteration, count_or_flow=
                     if (source, sink) in prev_max_flow_vals and prev_max_flow_vals[(source, sink)] == 0:
                         continue
 
-                flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d')
+                try:
+                    flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d', flow_func=nx.algorithms.flow.dinitz)
+                except IndexError:
+                    continue
                 
                 prev_max_flow_vals[(source, sink)] = flow_value
             
@@ -214,69 +182,7 @@ def max_flow_edge_count(G, prev_max_flow_vals, current_iteration, count_or_flow=
     df = df.sort_values(by='max_flow_edge_count', ascending=False)
     return df, prev_max_flow_vals
 
-def edge_cutset_count(G, observed_min_cutsets, current_iteration):
-    """
-    # TODO: something wonky about this heuristic?
-    Calculates the number of times each edge is part of the minimum cutset between any two nodes in the graph G.
-
-    Runtime approx. 104 minutes for N-k algorithm with complete dataset and 250 iterations.
-    Runtime approx. 67 minutes for N-k algorithm with complete dataset and 250 node removals.
-
-    """
-    nodes = list(G.nodes)
-    n = len(nodes)
-
-    edge_cutset_count_ = {edge: 0 for edge in G.edges}
-
-    for i in tqdm(range(n), desc='Calculating min cutset count'):
-
-        source = nodes[i]
-
-        if source == 'super_source' or source == 'super_sink':
-            continue
-
-        if G.out_degree(source) == 0:
-            continue
-
-        for j in range(i+1, n):
-
-            sink = nodes[j]
-
-            if sink == 'super_source' or sink == 'super_sink':
-                continue
-
-            if nx.has_path(G, source, sink):
-
-                if source != sink:
-
-                    if current_iteration > 1:
-                        if observed_min_cutsets[(source, sink)] == 0:
-                            continue
-
-                    min_cutset = nx.minimum_edge_cut(G, source, sink)
-
-                    observed_min_cutsets[(source, sink)] = len(min_cutset)
-
-                    for edge in G.edges:
-                        if edge in min_cutset:
-                            edge_cutset_count_[edge] += 1
-
-    data = [{
-        'edge': edge,
-        'min_cutset_count': value,
-    } for edge, value in edge_cutset_count_.items()]
-
-    df = pd.DataFrame(data)
-    df = df.sort_values(by='min_cutset_count', ascending=False)
-
-    return df, observed_min_cutsets
-
-
 def weighted_flow_capacity_rate(G):
-    """ 
-    Calculates the Weighted Flow Capacity Robustness (WFCR) of the graph G.    
-    Runtime 71m for N-k algorithm with complete dataset and 250 node removals.
-    """
 
     nodes = list(G.nodes)
     n = len(nodes)
@@ -290,17 +196,23 @@ def weighted_flow_capacity_rate(G):
         if source == 'super_source' or source == 'super_sink':
             continue
 
-        for j in range(i + 1, n):
+        for j in range(n):
 
             sink = nodes[j]
 
             if sink == 'super_source' or sink == 'super_sink':
                     continue
+            
+            if sink == source:
+                continue
 
-
-            if nx.has_path(G, source, nodes[j]):
+            if nx.has_path(G, source, sink):
                 
-                flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d')
+                try:
+                    flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d', flow_func=nx.algorithms.flow.dinitz)
+                except IndexError:
+                    continue
+
                 tot_flow += flow_value
                 
                 for u, flows in flow_dict.items():
