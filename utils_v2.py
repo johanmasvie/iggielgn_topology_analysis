@@ -45,7 +45,7 @@ def max_flow_edge_count(G, count_or_flow='count'):
                 if nx.has_path(G, source, sink):
 
                     try:
-                        flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d')
+                        flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d', flow_func=nx.algorithms.flow.dinitz)
                     except IndexError:
                         continue
                                     
@@ -109,7 +109,7 @@ def weighted_flow_capacity_rate(G):
                 if nx.has_path(G, source, sink):
 
                     try:
-                        flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d')
+                        flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d', flow_func=nx.algorithms.flow.dinitz)
                     except IndexError:
                         continue
                     
