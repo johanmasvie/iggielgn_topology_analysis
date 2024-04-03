@@ -16,7 +16,7 @@ SUB_PLOTS_FIGSIZE = (12, 6)
 
 
 
-def max_flow_edge_count(G, global_sources_lst, count_or_flow='count'):
+def max_flow_edge_count(G, global_sources_lst, global_sinks_lst, count_or_flow='count'):
     """
     Calculates the number of times each edge is part of the max flow path between any two nodes in the graph G. 
     """
@@ -38,12 +38,12 @@ def max_flow_edge_count(G, global_sources_lst, count_or_flow='count'):
                 # Node the max flow is calculated to
                 sink = nodes[j]
 
-                if source != sink:
+                if source != sink and sink in global_sinks_lst:
                 
                     if nx.has_path(G, source, sink):
 
                         try:
-                            flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d')
+                            flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d', flow_func=nx.algorithms.flow.dinitz)
                         except IndexError:
                             continue
                                         
@@ -79,62 +79,8 @@ def max_flow_edge_count(G, global_sources_lst, count_or_flow='count'):
     df = df.sort_values(by='max_flow_edge_count', ascending=False)
     return df
 
-def edge_cutset_count(G, observed_min_cutsets, global_sources_lst, current_iteration):
-    """
-    Calculates the number of times each edge is part of the minimum cutset between any two nodes in the graph G.
 
-    """
-    nodes = list(G.nodes)
-    n = len(nodes)
-
-    edge_cutset_count_ = {edge: 0 for edge in G.edges}
-
-    for i in tqdm(range(n), desc='Calculating min cutset count'):
-
-        source = nodes[i]
-
-        if source in global_sources_lst:
-
-            for j in range(n):
-
-                sink = nodes[j]
-
-                if source != sink:
-
-                    if nx.has_path(G, source, sink):
-
-                        if source != sink:
-
-                            if current_iteration > 1:
-                                if observed_min_cutsets[(source, sink)] == 0:
-                                    continue
-
-                            min_cutset = nx.minimum_edge_cut(G, source, sink)
-
-                            observed_min_cutsets[(source, sink)] = len(min_cutset)
-
-                            for edge in G.edges:
-                                if edge in min_cutset:
-                                    edge_cutset_count_[edge] += 1
-                        continue
-
-                observed_min_cutsets[(source, sink)] = 0
-
-    data = [{
-        'edge': edge,
-        'min_cutset_count': value,
-    } for edge, value in edge_cutset_count_.items()]
-
-    if not data:
-        return pd.DataFrame(), observed_min_cutsets
-
-    df = pd.DataFrame(data)
-    df = df.sort_values(by='min_cutset_count', ascending=False)
-
-    return df, observed_min_cutsets
-
-
-def weighted_flow_capacity_rate(G, global_sources_lst):
+def weighted_flow_capacity_rate(G, global_sources_lst, global_sinks_lst):
     """ 
     Calculates the Weighted Flow Capacity Robustness (WFCR) of the graph G.    
     """
@@ -155,12 +101,12 @@ def weighted_flow_capacity_rate(G, global_sources_lst):
 
                 sink = nodes[j]
 
-                if source != sink:
+                if source != sink and sink in global_sinks_lst:
 
                     if nx.has_path(G, source, sink):
 
                         try:
-                            flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d')
+                            flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d', flow_func=nx.algorithms.flow.dinitz)
                         except IndexError:
                             continue
                         
