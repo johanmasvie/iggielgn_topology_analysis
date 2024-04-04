@@ -31,7 +31,21 @@ def n_minus_k(G_, heuristic, remove, n_benchmarks=20, k_removals=250, exclude_be
         largest_strongly_connected = max(strongly_connected, key=len)
         largest_strongly_connected_graph = G.subgraph(largest_strongly_connected)
 
-        return len(largest_component), len(weakly_connected), len(strongly_connected), nx.average_shortest_path_length(largest_strongly_connected_graph), nx.diameter(largest_component_graph.to_undirected()), np.average(np.array(list(list(dict(CCI(G)).values()))))
+        diameter = 0
+        if len(weakly_connected) > 1:
+            for ele in weakly_connected:
+                ele_comp = G.subgraph(ele)
+                dia_ele_comp = nx.diameter(ele_comp.to_undirected())
+                if dia_ele_comp == 0:
+                    continue
+                adj_dia_ele_comp = (len(ele) / dia_ele_comp) * (len(ele) / len(G.nodes))
+                diameter += adj_dia_ele_comp
+        else:
+            diameter = G.number_of_edges() / nx.diameter(G.to_undirected())
+        average_shortest_path_length = 0
+
+        node_composite_centrality = np.average(np.array(list(dict(CCI(G)).values())))
+        return len(largest_component), len(weakly_connected), len(strongly_connected), average_shortest_path_length, diameter, node_composite_centrality
     
     def find_best_and_worst(find_best, current_graph, G_init, lcs, nwc, nsc, aspl, dia, comp_centrs, remove_node=True):
         best_score, worst_score = float('-inf'), float('inf')
@@ -63,7 +77,7 @@ def n_minus_k(G_, heuristic, remove, n_benchmarks=20, k_removals=250, exclude_be
         return worst_score, entity_
 
 
-    benchmark_graphs = [get_banchmark(G.to_undirected(), model='BA') for _ in range(n_benchmarks)]
+    benchmark_graphs = [get_banchmark(G.to_undirected(), model='ER') for _ in range(n_benchmarks)]
     r_graphs = [G.copy() for _ in range(n_benchmarks)]
 
     lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centrs_G_init = assess_grid_connectedness_init(G)
@@ -206,9 +220,6 @@ def n_minus_k(G_, heuristic, remove, n_benchmarks=20, k_removals=250, exclude_be
 def GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centr_G_init):
     largest_component_size, num_weakly_connected, num_strongly_connected, average_shortest_path_length, diameter, node_composite_centrality = get_connectedness_metrics_of(G)
 
-    if diameter == 0:
-        diameter = 1
-
     """
     RESILIENCE 
     Measures the network's resilience against random failures or targeted attacks. 
@@ -229,10 +240,9 @@ def GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, 
     It's reflected in the ratio of current average shortest path length and network diameter in comparison to their initial values.
 
     # CHANGE FROM PROJECT THESIS: instead of multiplying the indices, we take the geometric mean of the indices
-
     """
-    GCI_reach = ((average_shortest_path_length / aspl_G_init) * ((G.number_of_edges() / diameter) / (G_init.number_of_edges() / dia_G_init)))**(1/3)
-
+    # GCI_reach = 1 / ((dia_G_init / diameter) * (G.number_of_edges() / G_init.number_of_edges()))
+    GCI_reach = (diameter / dia_G_init)
 
     """
     CONNECTIVITY 
@@ -311,8 +321,7 @@ def get_connectedness_metrics_of(G):
     - Largest component size
     - Number of weakly connected components
     - Number of strongly connected components
-    - Average shortest path length
-    - Diameter
+    - Diameter 
     - Node composite centrality
     """
     weakly_connected = list(nx.weakly_connected_components(G))
@@ -325,14 +334,21 @@ def get_connectedness_metrics_of(G):
     largest_strongly_connected = max(strongly_connected, key=len, default=[])
     largest_strongly_connected_graph = G.subgraph(largest_strongly_connected)
 
-    if largest_component_size > 1:
-        largest_component_graph = G.subgraph(largest_component)
-        average_shortest_path_length = nx.average_shortest_path_length(largest_strongly_connected_graph)
-        diameter = nx.diameter(largest_component_graph.to_undirected())
-        node_composite_centrality = np.average(np.array(list(dict(CCI(G)).values())))
+    diameter = 0
+    if len(weakly_connected) > 1:
+        for ele in weakly_connected:
+            ele_comp = G.subgraph(ele)
+            dia_ele_comp = nx.diameter(ele_comp.to_undirected())
+            if dia_ele_comp == 0:
+                continue
+            adj_dia_ele_comp = (len(ele) / dia_ele_comp) * (len(ele) / len(G.nodes))
+            diameter += adj_dia_ele_comp
     else:
-        average_shortest_path_length = diameter = node_composite_centrality = 0
+        diameter = G.number_of_edges() / nx.diameter(G.to_undirected())
 
+    average_shortest_path_length = nx.average_shortest_path_length(largest_strongly_connected_graph.to_undirected())
+
+    node_composite_centrality = np.average(np.array(list(dict(CCI(G)).values())))
     return largest_component_size, num_weakly_connected, num_strongly_connected, average_shortest_path_length, diameter, node_composite_centrality
 
 
