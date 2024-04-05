@@ -239,9 +239,8 @@ def GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, 
     Quantifies the efficiency of information flow or reachability across the network. 
     It's reflected in the ratio of current average shortest path length and network diameter in comparison to their initial values.
 
-    # CHANGE FROM PROJECT THESIS: instead of multiplying the indices, we take the geometric mean of the indices
+    # CHANGE FROM PROJECT THESIS: reach calculated correctly in terms of multiple components, using solely diameter
     """
-    # GCI_reach = 1 / ((dia_G_init / diameter) * (G.number_of_edges() / G_init.number_of_edges()))
     GCI_reach = (diameter / dia_G_init)
 
     """
