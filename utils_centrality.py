@@ -12,7 +12,7 @@ SUB_PLOTS_FIGSIZE = (12, 6)
 
 #------------------------------------------------------------FROM HERE ONWARDS IS CODE FROM PROJECT THESIS------------------------------------------------------------
 
-def n_minus_k(G_, heuristic, remove, n_benchmarks=20, k_removals=250, exclude_benchmark=True, best_worst_case=False, er_best_worst=False, print_output=False, SEED=42):
+def n_minus_k(G_, heuristic, remove, n_benchmarks=20, k_removals=400, exclude_benchmark=True, best_worst_case=False, er_best_worst=False, print_output=False, SEED=42):
 
     G = G_.copy()
 
@@ -20,7 +20,7 @@ def n_minus_k(G_, heuristic, remove, n_benchmarks=20, k_removals=250, exclude_be
     results_best_worst_df = pd.DataFrame(columns=['iteration', 'best_entity', 'composite_best', 'worst_entity', 'composite_worst'])
 
     if exclude_benchmark:
-        results_df = pd.DataFrame(columns=['iteration', 'removed_entity', 'composite', 'robustness', 'reach', 'connectivity'])
+        results_df = pd.DataFrame(columns=['iteration', 'removed_entity', 'composite', 'robustness', 'reach', 'connectivity', 'heuristic'])
 
     def assess_grid_connectedness_init(G):
         weakly_connected = list(nx.weakly_connected_components(G))
@@ -104,7 +104,7 @@ def n_minus_k(G_, heuristic, remove, n_benchmarks=20, k_removals=250, exclude_be
             composite, robustness, reach, connectivity = GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centrs_G_init)
 
             if exclude_benchmark:
-                results_df.loc[i] = [i, None, composite, robustness, reach, connectivity]
+                results_df.loc[i] = [i, None, composite, robustness, reach, connectivity, None]
                 continue
 
             composite_b, robustness_b, reach_b, connectivity_b = GCI(benchmark_graphs[0], Gb_init, lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, aspl_Gb_init, dia_Gb_init, comp_centrs_Gb_init)
@@ -165,7 +165,7 @@ def n_minus_k(G_, heuristic, remove, n_benchmarks=20, k_removals=250, exclude_be
                 
                 if exclude_benchmark:
                     results_df.loc[i] = [i, None,
-                                        sum(r_connectedness_lst) / len(r_connectedness_lst), sum(r_robustness_lst) / len(r_robustness_lst), sum(r_reach_lst) / len(r_reach_lst), sum(r_connectivity_lst) / len(r_connectivity_lst)]
+                                        sum(r_connectedness_lst) / len(r_connectedness_lst), sum(r_robustness_lst) / len(r_robustness_lst), sum(r_reach_lst) / len(r_reach_lst), sum(r_connectivity_lst) / len(r_connectivity_lst), 'random']
                     continue
                 
                 
@@ -200,7 +200,7 @@ def n_minus_k(G_, heuristic, remove, n_benchmarks=20, k_removals=250, exclude_be
             composite, robustness, reach, connectivity = GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centrs_G_init)
 
             if exclude_benchmark:
-                results_df.loc[i] = [i, target, composite, robustness, reach, connectivity]
+                results_df.loc[i] = [i, target, composite, robustness, reach, connectivity, 'greedy']
                 continue
 
             for benchmark in benchmark_graphs:
