@@ -10,6 +10,8 @@ import random
 SUP_TITLE_X, SUP_TITLE_HA, SUP_TITLE_FONTSIZE = 0.285, 'center', 16
 SUB_PLOTS_FIGSIZE, SUB_LOC, SUB_TITLE_FONTSIZE = (20, 6), 'left', 14
 
+SUP_TITLE_X_PLOT_TRANSLATED_ANALYSIS = 0.37
+
 with open('graph_objects/G_simple_directed.pickle', 'rb') as f:
     G_simple_directed = pickle.load(f)
     G_simple_directed.name = 'G_simple_directed'
@@ -22,7 +24,67 @@ import numpy as np
 import sympy as sp
 import matplotlib.pyplot as plt
 
-def plot_metrics(df1_pair, df2_pair, index1, index2):
+def plot_transform_analysis(df1_pair, df2_pair, index):
+    fig, axs = plt.subplots(1, 2, figsize=SUB_PLOTS_FIGSIZE)
+
+    title = 'Centrality based N-k analysis employing greedy entity removal order resulting from max flow analysis'
+    if 'max_flow_value'in df1_pair[0].columns.values:
+        title = 'Max flow based N-k analysis employing greedy entity removal order resulting from centrality analysis'
+
+    for ax, df1, df2 in zip(axs, df1_pair, df2_pair):
+        min_length = min(len(df1), len(df2))
+        df1 = df1.iloc[:min_length]
+        df2 = df2.iloc[:min_length]
+
+        entity_type = 'edge' if isinstance(df2.iloc[-1]['removed_entity'], set) else 'node'
+
+
+        ax.set_title(f'{entity_type} removal', loc=SUB_LOC, fontsize=SUB_TITLE_FONTSIZE)
+        ax.plot(df1.index, df1[index], label='transformed', color='blue')
+        ax.plot(df2.index, df2[index], label='original', color='gray', alpha=0.4)
+
+        # Add vertical line at intersection points
+        intersection_points = np.argwhere(np.diff(np.sign(df1[index] - df2[index]))).flatten()
+        for point in intersection_points:
+            if point != 0:
+                ax.axvline(x=point, color='r', linestyle='--', alpha=0.4)
+                ax.text(point + 2, 0.9, 'k=' + str(point), rotation=0, alpha=0.4, color='r', verticalalignment='top')
+        
+        # Calculate absolute difference between the two curves
+        absolute_diff = np.abs(df1[index] - df2[index])[:min_length]  # Limiting to the length of the shorter dataframe
+        ax.fill_between(df1.index[:min_length], 0, absolute_diff, color='grey', alpha=0.1)
+        ax.set_ylabel(index)
+        ax.set_xlabel('k '+entity_type+' removals')
+
+    # Creating a separate legend for the intersection and absolute difference
+    intersection_legend = plt.Line2D([0], [0], color='r', linestyle='--', alpha=0.4, label='intersection')
+    abs_diff_legend = Patch(facecolor='grey', edgecolor='black', alpha=0.1, label='absolute diff')
+    fig.legend(handles=[intersection_legend, abs_diff_legend], loc='upper right', bbox_to_anchor=(0.8, 1.0))
+
+    # Combine handles and labels for plot lines
+    handles1, labels1 = axs[0].get_legend_handles_labels()
+    handles2, labels2 = axs[1].get_legend_handles_labels()
+
+    # Combine handles and labels, filtering out duplicates
+    handles = handles1 + handles2
+    labels = labels1 + labels2
+    unique_labels = []
+    unique_handles = []
+
+    for handle, label in zip(handles, labels):
+        if label not in unique_labels:
+            unique_labels.append(label)
+            unique_handles.append(handle)
+
+    fig.legend(unique_handles, unique_labels, loc='upper right', bbox_to_anchor=(0.9, 1.0))
+
+    plt.suptitle(title, x=SUP_TITLE_X_PLOT_TRANSLATED_ANALYSIS, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
+    plt.show()
+
+
+
+
+def plot_max_flow_and_centrality_comparison(df1_pair, df2_pair, index1, index2):
     
     fig, axs = plt.subplots(1, 2, figsize=SUB_PLOTS_FIGSIZE)
     entity_type = 'node' if ',' not in str(df2_pair[0].iloc[-1]['removed_entity']) else 'edge'
@@ -204,7 +266,6 @@ def common_entities(df1_, df2_):
 
 def fix_centrality_edge(edges_lst):
     new_edges_lst = []
-    print(edges_lst)
     for e in edges_lst:
         if e in G_simple_directed.edges():
             new_edges_lst.append(e)
