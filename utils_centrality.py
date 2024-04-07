@@ -12,7 +12,7 @@ SUB_PLOTS_FIGSIZE = (12, 6)
 
 #------------------------------------------------------------FROM HERE ONWARDS IS CODE FROM PROJECT THESIS------------------------------------------------------------
 
-def n_minus_k(G_, heuristic, remove, n_benchmarks=20, k_removals=400, exclude_benchmark=True, best_worst_case=False, er_best_worst=False, print_output=False, SEED=42):
+def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=400, exclude_benchmark=True, best_worst_case=False, er_best_worst=False, print_output=False, greedy_max_flow_lst=None, SEED=42):
 
     G = G_.copy()
 
@@ -206,6 +206,39 @@ def n_minus_k(G_, heuristic, remove, n_benchmarks=20, k_removals=400, exclude_be
             for benchmark in benchmark_graphs:
                 benchmark_target = func(benchmark)
                 benchmark.remove_node(benchmark_target) if remove == 'node' else benchmark.remove_edge(*benchmark_target)
+                b_composite, b_robustness, b_reach, b_connectivity = GCI(benchmark, Gb_init, lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, aspl_Gb_init, dia_Gb_init, comp_centrs_Gb_init)
+                
+                b_connectedness_lst.append(b_composite)
+                b_robustness_lst.append(b_robustness)
+                b_reach_lst.append(b_reach)
+                b_connectivity_lst.append(b_connectivity)
+
+            results_df.loc[i] = [i, target, composite, robustness, reach, connectivity, sum(b_connectedness_lst) / len(b_connectedness_lst), sum(b_robustness_lst) / len(b_robustness_lst), sum(b_reach_lst) / len(b_reach_lst), sum(b_connectivity_lst) / len(b_connectivity_lst)]
+
+        elif heuristic == 'max_flow':
+            if greedy_max_flow_lst is None:
+                raise ValueError("Please provide a list of greedy max flows for the 'max_flow' heuristic.")
+            try:
+                target = greedy_max_flow_lst[i]
+            except IndexError:
+                return results_df, results_best_worst_df
+            
+            if isinstance(target, tuple):
+                if target not in G.edges():
+                    target = tuple([target[1], target[0]])
+                    if target not in G.edges():
+                        print(f"Edge {target} not in graph. Skipping...")
+                        continue
+    
+            G.remove_edge(*target) if isinstance(target, tuple) else G.remove_node(target)
+            
+            composite, robustness, reach, connectivity = GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centrs_G_init)
+            if exclude_benchmark:
+                results_df.loc[i] = [i, set(target), composite, robustness, reach, connectivity, 'max_flow']
+                continue
+
+            for benchmark in benchmark_graphs:
+                benchmark.remove_edge(*target)
                 b_composite, b_robustness, b_reach, b_connectivity = GCI(benchmark, Gb_init, lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, aspl_Gb_init, dia_Gb_init, comp_centrs_Gb_init)
                 
                 b_connectedness_lst.append(b_composite)
