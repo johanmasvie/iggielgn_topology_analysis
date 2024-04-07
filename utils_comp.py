@@ -201,3 +201,15 @@ def common_entities(df1_, df2_):
     result_df = result_df.sort_values(by='abs_diff')
 
     return result_df
+
+def fix_centrality_edge(edges_lst):
+    new_edges_lst = []
+    print(edges_lst)
+    for e in edges_lst:
+        if e in G_simple_directed.edges():
+            new_edges_lst.append(e)
+        reversed_e = (e[1], e[0])
+        if reversed_e in G_simple_directed.edges():
+            if reversed_e not in new_edges_lst:
+                new_edges_lst.append(reversed_e)
+    return list(set(new_edges_lst))
