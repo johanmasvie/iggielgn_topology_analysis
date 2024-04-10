@@ -48,7 +48,7 @@ def W(G, global_nodes_lst, global_sources_lst, global_sinks_lst):
 
             if source != sink and sink in global_sinks_lst and source in G and sink in G:
                 if nx.has_path(G, source, sink):
-                    flow_val, flow_dict = nx.maximum_flow(G, source, sink, capacity="max_cap_M_m3_per_d", flow_func=nx.algorithms.flow.dinitz)
+                    flow_val, flow_dict = nx.maximum_flow(G, source, sink, capacity="capacity", flow_func=nx.algorithms.flow.dinitz)
 
                     flow_matrix[i, j] = flow_val
                     tot_flow += flow_val
@@ -95,7 +95,7 @@ def W_c(_flow_matrix, target, node_indices):
     return flow_matrix
 
 
-def flow_capacity_robustness(G_, heuristic='random', remove='node', k_removals=400, n_benchmarks = 10, greedy_centrality_lst=None):
+def flow_capacity_robustness(G_, heuristic='random', remove='node', k_removals=2500, n_benchmarks = 10, greedy_centrality_lst=None):
     """ 
     Computes the n-k capacity robustness based on maximum flow of a graph
     """
@@ -108,7 +108,7 @@ def flow_capacity_robustness(G_, heuristic='random', remove='node', k_removals=4
     global_sources_lst = [n for n in global_nodes_lst if G.in_degree(n) == 0 and G.out_degree(n) > 0]
     global_sinks_lst = [n for n in global_nodes_lst if G.out_degree(n) == 0 and G.in_degree(n) > 0]
 
-    greedy_centrality_lst = list(greedy_centrality_lst)
+    list(greedy_centrality_lst) if greedy_centrality_lst is not None else None
    
     # Get all-pairs flow matrix W of the network
     flow_matrix, node_indices, flow_val_init = W(G, global_nodes_lst, global_sources_lst, global_sinks_lst)
@@ -250,7 +250,7 @@ def max_flow_edge_count(G, global_sources_lst, global_sinks_lst, count_or_flow='
                     if nx.has_path(G, source, sink):
 
                         try:
-                            flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d', flow_func=nx.algorithms.flow.dinitz)
+                            flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='capacity', flow_func=nx.algorithms.flow.dinitz)
                         except IndexError:
                             continue
                                         
@@ -268,7 +268,7 @@ def max_flow_edge_count(G, global_sources_lst, global_sinks_lst, count_or_flow='
                                     continue
 
                                 if flow > 0 and count_or_flow == 'load_rate':
-                                    edge_count[(u, v)] += (flow / G.edges[(u, v)]['max_cap_M_m3_per_d'])
+                                    edge_count[(u, v)] += (flow / G.edges[(u, v)]['capacity'])
 
                         continue          
     
@@ -313,7 +313,7 @@ def weighted_flow_capacity_rate(G, global_sources_lst, global_sinks_lst):
                     if nx.has_path(G, source, sink):
 
                         try:
-                            flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d', flow_func=nx.algorithms.flow.dinitz)
+                            flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='capacity', flow_func=nx.algorithms.flow.dinitz)
                         except IndexError:
                             continue
                         
@@ -323,7 +323,7 @@ def weighted_flow_capacity_rate(G, global_sources_lst, global_sinks_lst):
                             for v, flow in flows.items():
                                 if flow > 0:
                                     if (u, v) in G.edges:
-                                        capacity = G.edges[(u, v)]['max_cap_M_m3_per_d']
+                                        capacity = G.edges[(u, v)]['capacity']
                                     
                                     if capacity > 0:  
                                         edge_WFCR[(u, v)] = edge_WFCR.get((u, v), 0) + (flow ** 2) / capacity
