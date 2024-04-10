@@ -12,7 +12,7 @@ SUB_PLOTS_FIGSIZE, SUB_LOC, SUB_TITLE_FONTSIZE = (20, 6), 'left', 14
 
 SUP_TITLE_X_PLOT_TRANSLATED_ANALYSIS = 0.37
 
-with open('graph_objects/G_simple_directed.pickle', 'rb') as f:
+with open('graph_objects/G_simple_directed_iggielgn.pickle', 'rb') as f:
     G_simple_directed = pickle.load(f)
     G_simple_directed.name = 'G_simple_directed'
 

@@ -12,7 +12,7 @@ SUB_PLOTS_FIGSIZE = (12, 6)
 
 #------------------------------------------------------------FROM HERE ONWARDS IS CODE FROM PROJECT THESIS------------------------------------------------------------
 
-def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=400, exclude_benchmark=True, best_worst_case=False, er_best_worst=False, print_output=False, greedy_max_flow_lst=None, SEED=42):
+def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, exclude_benchmark=True, best_worst_case=False, er_best_worst=False, print_output=False, greedy_max_flow_lst=None, SEED=42):
 
     G = G_.copy()
 
@@ -41,7 +41,7 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=400, exc
                 adj_dia_ele_comp = (len(ele) / dia_ele_comp) * (len(ele) / len(G.nodes))
                 diameter += adj_dia_ele_comp
         else:
-            diameter = G.number_of_edges() / nx.diameter(G.to_undirected())
+            diameter = G.number_of_nodes() / nx.diameter(G.to_undirected())
         average_shortest_path_length = 0
 
         node_composite_centrality = np.average(np.array(list(dict(CCI(G)).values())))
@@ -376,7 +376,7 @@ def get_connectedness_metrics_of(G):
             adj_dia_ele_comp = (len(ele) / dia_ele_comp) * (len(ele) / len(G.nodes))
             diameter += adj_dia_ele_comp
     else:
-        diameter = G.number_of_edges() / nx.diameter(G.to_undirected())
+        diameter = G.number_of_nodes() / nx.diameter(G.to_undirected())
 
     average_shortest_path_length = nx.average_shortest_path_length(largest_strongly_connected_graph.to_undirected())
 
