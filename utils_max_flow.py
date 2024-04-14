@@ -28,6 +28,8 @@ def W(G, global_nodes_lst, global_sources_lst, global_sinks_lst):
     flow_matrix = np.zeros((num_nodes, num_nodes))
 
     tot_flow = 0
+    heuristic_count = {}
+
     for i in tqdm(range(num_nodes), desc="Computing flow matrix W"):
 
         source = global_nodes_lst[i]    
@@ -46,14 +48,48 @@ def W(G, global_nodes_lst, global_sources_lst, global_sinks_lst):
 
             sink = global_nodes_lst[j]
 
-            if source != sink and sink in global_sinks_lst and source in G and sink in G:
+            if source != sink and source in global_sources_lst and sink in global_sinks_lst and source in G and sink in G:
                 if nx.has_path(G, source, sink):
-                    flow_val, flow_dict = nx.maximum_flow(G, source, sink, capacity="max_cap_M_m3_per_d", flow_func=nx.algorithms.flow.dinitz)
-
+                    flow_val, flow_dict = nx.maximum_flow(G, source, sink, capacity='capacity', flow_func=nx.algorithms.flow.dinitz)
                     flow_matrix[i, j] = flow_val
                     tot_flow += flow_val
+                
+                    for u, flows in flow_dict.items():
+                            for v, flow in flows.items():
+
+                                # Weighted Flow Capacity Rate
+                                if flow > 0 and heuristic_type == 'wfcr':
+                                    heuristic_count[(u, v)] = heuristic_count.get((u, v), 0) + (flow ** 2) / G.edges[(u, v)]['capacity']
+                                    continue
+                                
+                                # Max flow edge count
+                                if (u, v) not in heuristic_count:
+                                    heuristic_count[(u, v)] = 0
+                                
+                                # Max flow
+                                if heuristic_type == 'max_flow':
+                                    heuristic_count[(u, v)] += flow
+                                    continue
+
+                                # Max flow edge count
+                                if flow > 0 and heuristic_type == 'max_flow_edge_count':
+                                    heuristic_count[(u, v)] += 1
+                                    continue
+
+                                # Load rate
+                                if flow > 0 and heuristic_type == 'load_rate':
+                                    heuristic_count[(u, v)] += (flow / G.edges[(u, v)]['capacity'])
             else:
-                flow_matrix[i, j] = 0           
+                flow_matrix[i, j] = 0    
+
+    # Before returning the flow matrix, set the heuristic results
+    global heuristic_targets_df
+    n = G.number_of_nodes()
+    try:
+        heuristic_targets_df = pd.DataFrame([{'edge': k, 'wfcr': v / (n * (n - 1) * tot_flow),} for k, v in heuristic_count.items()])
+        heuristic_targets_df = heuristic_targets_df.sort_values(by='wfcr', ascending=False) 
+    except KeyError:
+        heuristic_targets_df = pd.DataFrame()
 
     return flow_matrix, node_indices, tot_flow
 
@@ -95,20 +131,26 @@ def W_c(_flow_matrix, target, node_indices):
     return flow_matrix
 
 
-def flow_capacity_robustness(G_, heuristic='random', remove='node', k_removals=400, n_benchmarks = 10, greedy_centrality_lst=None):
+def flow_capacity_robustness(G_, heuristic='random', remove='node', k_removals=2500, sinks_sources='type', n_benchmarks = 10, greedy_centrality_lst=None):
     """ 
     Computes the n-k capacity robustness based on maximum flow of a graph
     """
+
+    global heuristic_type
+    heuristic_type = heuristic
 
     # Make a copy of the graph
     G = G_.copy()
     
     # Instantiate list of all nodes in the graph
     global_nodes_lst = list(G.nodes())
-    global_sources_lst = [n for n in global_nodes_lst if G.in_degree(n) == 0 and G.out_degree(n) > 0]
-    global_sinks_lst = [n for n in global_nodes_lst if G.out_degree(n) == 0 and G.in_degree(n) > 0]
 
-    greedy_centrality_lst = list(greedy_centrality_lst)
+    # Define the sinks and sources configuration
+    global_sources_lst = [n for n, d in G.nodes(data=True) if d.get('type') in ['consumer', 'storage']]
+    global_sinks_lst = [n for n, d in G.nodes(data=True) if d.get('type') in ['production', 'borderpoint', 'lng']]
+    if sinks_sources == 'degree':
+        global_sources_lst = [n for n in global_nodes_lst if G.in_degree(n) == 0 and G.out_degree(n) > 0]
+        global_sinks_lst = [n for n in global_nodes_lst if G.out_degree(n) == 0 and G.in_degree(n) > 0]
    
     # Get all-pairs flow matrix W of the network
     flow_matrix, node_indices, flow_val_init = W(G, global_nodes_lst, global_sources_lst, global_sinks_lst)
@@ -171,36 +213,28 @@ def flow_capacity_robustness(G_, heuristic='random', remove='node', k_removals=4
             results_df.loc[k] = [np.mean(max_flow_lst), np.mean(capacity_robustness_lst), 'random', target]
         
         elif heuristic == 'load_rate':
-            target_df = max_flow_edge_count(G, global_sources_lst, global_sinks_lst, count_or_flow='load_rate')
-
+            target_df = get_heuristic_targets()
             if target_df.empty:
                 return results_df
-                    
             G, flow_matrix, node_indices = perform_targeted_removal(G, 'load_rate', target_df.iloc[0].edge, flow_matrix, node_indices, results_df)
         
 
         elif heuristic == 'max_flow_edge_count':
-            target_df = max_flow_edge_count(G, global_sources_lst, global_sinks_lst)
-
+            target_df = get_heuristic_targets()
             if target_df.empty:
-                return results_df
-                    
+                return results_df    
             G, flow_matrix, node_indices = perform_targeted_removal(G, 'max_flow_edge_count', target_df.iloc[0].edge, flow_matrix, node_indices, results_df)
 
         elif heuristic == 'max_flow':
-            target_df = max_flow_edge_count(G, global_sources_lst, global_sinks_lst, count_or_flow='flow')
-
+            target_df = get_heuristic_targets()
             if target_df.empty:
                 return results_df
-                    
             G, flow_matrix, node_indices = perform_targeted_removal(G, 'max_flow_edge_flows', target_df.iloc[0].edge, flow_matrix, node_indices, results_df)   
 
         elif heuristic == 'wfcr':
-            target_df = weighted_flow_capacity_rate(G, global_sources_lst, global_sinks_lst)
-
+            target_df = get_heuristic_targets()
             if target_df.empty:
                 return results_df
-
             G, flow_matrix, node_indices = perform_targeted_removal(G, 'wfcr', target_df.iloc[0].edge, flow_matrix, node_indices, results_df)
 
         elif heuristic == 'greedy_centrality':
@@ -221,6 +255,12 @@ def flow_capacity_robustness(G_, heuristic='random', remove='node', k_removals=4
 
 ###------------------------------------------------------------FROM HERE ARE GREEDY HEURISTICS------------------------------------------------------------###
 
+heuristic_targets_df = pd.DataFrame()
+heuristic_type = None
+
+def get_heuristic_targets():
+    global heuristic_targets_df
+    return heuristic_targets_df
 
 
 def max_flow_edge_count(G, global_sources_lst, global_sinks_lst, count_or_flow='count'):
@@ -250,7 +290,7 @@ def max_flow_edge_count(G, global_sources_lst, global_sinks_lst, count_or_flow='
                     if nx.has_path(G, source, sink):
 
                         try:
-                            flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d', flow_func=nx.algorithms.flow.dinitz)
+                            flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='capacity', flow_func=nx.algorithms.flow.dinitz)
                         except IndexError:
                             continue
                                         
@@ -268,7 +308,7 @@ def max_flow_edge_count(G, global_sources_lst, global_sinks_lst, count_or_flow='
                                     continue
 
                                 if flow > 0 and count_or_flow == 'load_rate':
-                                    edge_count[(u, v)] += (flow / G.edges[(u, v)]['max_cap_M_m3_per_d'])
+                                    edge_count[(u, v)] += (flow / G.edges[(u, v)]['capacity'])
 
                         continue          
     
@@ -313,7 +353,7 @@ def weighted_flow_capacity_rate(G, global_sources_lst, global_sinks_lst):
                     if nx.has_path(G, source, sink):
 
                         try:
-                            flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='max_cap_M_m3_per_d', flow_func=nx.algorithms.flow.dinitz)
+                            flow_value, flow_dict = nx.maximum_flow(G, source, sink, capacity='capacity', flow_func=nx.algorithms.flow.dinitz)
                         except IndexError:
                             continue
                         
@@ -323,7 +363,7 @@ def weighted_flow_capacity_rate(G, global_sources_lst, global_sinks_lst):
                             for v, flow in flows.items():
                                 if flow > 0:
                                     if (u, v) in G.edges:
-                                        capacity = G.edges[(u, v)]['max_cap_M_m3_per_d']
+                                        capacity = G.edges[(u, v)]['capacity']
                                     
                                     if capacity > 0:  
                                         edge_WFCR[(u, v)] = edge_WFCR.get((u, v), 0) + (flow ** 2) / capacity
