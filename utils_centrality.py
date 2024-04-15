@@ -425,17 +425,16 @@ def plot_connectedness_fourway(results_dfs, titles, title_prefix="", include_ben
         
         for j, results_df in enumerate(results_dfs):
             if j == 0:
-                ax.plot(results_df['iteration'], results_df[metric_columns[j]], marker='o', label=metric_labels[j], color=colors_set1[0])
+                ax.plot(results_df['iteration'], results_df[metric_columns[j]], label=metric_labels[j], color=colors_set1[0])
                 if include_benchmark:
-                    ax.plot(results_df['iteration'], results_df[benchmark_columns[j]], marker='o', label=benchmark_labels[j], color=colors_set1[1])
+                    ax.plot(results_df['iteration'], results_df[benchmark_columns[j]], label=benchmark_labels[j], color=colors_set1[1])
             else:
-                ax.plot(results_df['iteration'], results_df[metric_columns[j]], marker='o', label=metric_labels[j], color=colors_set2[0])
+                ax.plot(results_df['iteration'], results_df[metric_columns[j]], label=metric_labels[j], color=colors_set2[0])
                 if include_benchmark:
-                    ax.plot(results_df['iteration'], results_df[benchmark_columns[j]], marker='o', label=benchmark_labels[j], color=colors_set2[1])
+                    ax.plot(results_df['iteration'], results_df[benchmark_columns[j]], label=benchmark_labels[j], color=colors_set2[1])
         
         ax.set_xlabel('k iterations')
         ax.set_ylabel(ylabel[i])
-        ax.grid(True)
         ax.set_title(titles[i])  
         
         if i == 0:
