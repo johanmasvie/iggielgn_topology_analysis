@@ -121,7 +121,7 @@ def plot_max_flow_and_centrality_comparison(df1_pair, df2_pair, index1, index2):
     handles, labels = axs[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', bbox_to_anchor=(0.9, 1.0))
 
-    plt.suptitle('Comparison of max flow and centrality based N-k anlyses', x=SUP_TITLE_X, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
+    plt.suptitle('Comparison of max flow and centrality based N-k analyses', x=SUP_TITLE_X, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
     plt.show()
     
     for df1, df2 in zip(df1_pair, df2_pair):

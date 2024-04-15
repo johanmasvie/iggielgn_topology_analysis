@@ -412,12 +412,13 @@ def plot_heuristic_comparison_biplot(df_list, title_prefix=""):
     fig, axes = plt.subplots(1, 2, figsize=SUB_PLOTS_FIGSIZE)
 
     series_names = list(df_list[0].columns[:2])
+    shortest_df_length = min(len(df) for df in df_list)
 
     for ax, series_name in zip(axes, series_names):
         for df in df_list:
             heuristic = str(df.iloc[1]['heuristic'])
             remove = 'edge' if isinstance(df.iloc[1]['removed_entity'], set) else 'node'
-            ax.plot(df.index, df[series_name], marker='o', label=f'{heuristic} {remove} removals')
+            ax.plot(df.index[:shortest_df_length], df[series_name][:shortest_df_length], label=f'{heuristic}')
 
         ax.set_xlabel('k iterations')
         ax.set_ylabel(series_name.replace('_', ' '))
@@ -425,7 +426,7 @@ def plot_heuristic_comparison_biplot(df_list, title_prefix=""):
 
         ax.legend()
 
-    plt.suptitle(title_prefix, x=SUP_TITLE_X, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
+    plt.suptitle(title_prefix, x=0.2, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
     plt.tight_layout()
     plt.show()
 
