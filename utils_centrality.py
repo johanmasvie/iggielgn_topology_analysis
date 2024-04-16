@@ -12,7 +12,7 @@ SUB_PLOTS_FIGSIZE = (12, 6)
 
 #------------------------------------------------------------FROM HERE ONWARDS IS CODE FROM PROJECT THESIS------------------------------------------------------------
 
-def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, exclude_benchmark=True, best_worst_case=False, er_best_worst=False, print_output=False, greedy_max_flow_lst=None, SEED=42):
+def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, exclude_benchmark=True, greedy_max_flow_lst=None, SEED=42):
 
     G = G_.copy()
 
@@ -23,14 +23,11 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, ex
         results_df = pd.DataFrame(columns=['iteration', 'removed_entity', 'composite', 'robustness', 'reach', 'connectivity', 'heuristic'])
 
     def assess_grid_connectedness_init(G):
+
         weakly_connected = list(nx.weakly_connected_components(G))
         largest_component = max(weakly_connected, key=len)
-        largest_component_graph = G.subgraph(largest_component)
-
         strongly_connected = list(nx.strongly_connected_components(G))
-        largest_strongly_connected = max(strongly_connected, key=len)
-        largest_strongly_connected_graph = G.subgraph(largest_strongly_connected)
-
+ 
         diameter = 0
         if len(weakly_connected) > 1:
             for ele in weakly_connected:
@@ -42,72 +39,30 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, ex
                 diameter += adj_dia_ele_comp
         else:
             diameter = G.number_of_nodes() / nx.diameter(G.to_undirected())
-        average_shortest_path_length = 0
 
         node_composite_centrality = np.average(np.array(list(dict(CCI(G)).values())))
-        return len(largest_component), len(weakly_connected), len(strongly_connected), average_shortest_path_length, diameter, node_composite_centrality
+        return len(largest_component), len(weakly_connected), len(strongly_connected), diameter, node_composite_centrality
     
-    def find_best_and_worst(find_best, current_graph, G_init, lcs, nwc, nsc, aspl, dia, comp_centrs, remove_node=True):
-        best_score, worst_score = float('-inf'), float('inf')
-        entity = None
-        
-        for entity in current_graph.nodes() if remove_node else current_graph.edges():
-            modified_graph = current_graph.copy()
-            if remove_node:
-                modified_graph.remove_node(entity)
-            else:
-                modified_graph.remove_edge(*entity)
-            
-            composite, _, _, _ = GCI(modified_graph, G_init, lcs, nwc, nsc, aspl, dia, comp_centrs)
-            
-            if np.isnan(composite):
-                continue
-            
-            if find_best:
-                if composite > best_score:
-                    best_score = composite
-                    entity_ = entity
-            else:
-                if composite < worst_score:
-                    worst_score = composite
-                    entity_ = entity
-        
-        if find_best:
-            return best_score, entity_
-        return worst_score, entity_
-
-
+   
     benchmark_graphs = [get_banchmark(G.to_undirected(), model='ER') for _ in range(n_benchmarks)]
     r_graphs = [G.copy() for _ in range(n_benchmarks)]
 
-    lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centrs_G_init = assess_grid_connectedness_init(G)
-    lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, aspl_Gb_init, dia_Gb_init, comp_centrs_Gb_init = assess_grid_connectedness_init(benchmark_graphs[0])
-
-    G_init = G.copy()
-    Gb_init = benchmark_graphs[0].copy()
-
-    r_best, r_worst = G.copy(), G.copy()
-    lcs_BW, nwc_BW, nsc_BW, aspl_BW, dia_BW, comp_centrs_BW = lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centrs_G_init
-    worst_case_terminated = False
-
-    if best_worst_case and er_best_worst:
-        r_best = Gb_init.copy()
-        r_worst = Gb_init.copy()
-        lcs_BW, nwc_BW, nsc_BW, aspl_BW, dia_BW, comp_centrs_BW = lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, aspl_Gb_init, dia_Gb_init, comp_centrs_Gb_init
-
+    lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init = assess_grid_connectedness_init(G)
+    lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, dia_Gb_init, comp_centrs_Gb_init = assess_grid_connectedness_init(benchmark_graphs[0])
+    
     for i in tqdm(range(0, k_removals + 1), desc='N-k iterations'):  # Loop through k_removals + 1 iterations
         b_connectedness_lst, b_robustness_lst, b_reach_lst, b_connectivity_lst = [], [], [], []
         r_connectedness_lst, r_robustness_lst, r_reach_lst, r_connectivity_lst = [], [], [], []
 
         # For the first iteration, calculate and store initial connectedness indices
         if i == 0:  
-            composite, robustness, reach, connectivity = GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centrs_G_init)
+            composite, robustness, reach, connectivity = GCI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
 
             if exclude_benchmark:
                 results_df.loc[i] = [i, None, composite, robustness, reach, connectivity, None]
                 continue
 
-            composite_b, robustness_b, reach_b, connectivity_b = GCI(benchmark_graphs[0], Gb_init, lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, aspl_Gb_init, dia_Gb_init, comp_centrs_Gb_init)
+            composite_b, robustness_b, reach_b, connectivity_b = GCI(benchmark_graphs[0], lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, dia_Gb_init, comp_centrs_Gb_init)
             
             results_df.loc[i] = [i, None, composite, robustness, reach, connectivity, composite_b, robustness_b, reach_b, connectivity_b]
             results_best_worst_df.loc[i] = [i, None, composite, None, composite]
@@ -116,72 +71,37 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, ex
         # Rest of iterations (i.e., not i == 0)
         if heuristic == 'random':
 
-            if best_worst_case:
+            for real_copy in r_graphs:  # Iterate through the instantiated copies
+                target = random.choice(list(real_copy.nodes() if remove == 'node' else real_copy.edges()))
+
+                real_copy.remove_node(target) if remove == 'node' else real_copy.remove_edge(*target)
+                r_composite, r_robustness, r_reach, r_connectivity = GCI(real_copy, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
                 
-                if remove == 'node':
-                    is_node = True
-                else:
-                    is_node = False
-
-                best_score, best_entity = find_best_and_worst(True, r_best, G_init, lcs_BW, nwc_BW, nsc_BW, aspl_BW, dia_BW, comp_centrs_BW, remove_node=is_node)
-
-                if is_node:
-                    r_best.remove_node(best_entity)
-                else:
-                    r_best.remove_edge(*best_entity)
-
-                if worst_case_terminated:
-                    worst_score = 0
-                else:
-                    worst_score, worst_entity = find_best_and_worst(False, r_worst, G_init, lcs_BW, nwc_BW, nsc_BW, aspl_BW, dia_BW, comp_centrs_BW, remove_node=is_node)
-
-                    if worst_entity is not None:
-                        if is_node:
-                            r_worst.remove_node(worst_entity)
-                        else:
-                            r_worst.remove_edge(*worst_entity)
-
-                results_best_worst_df.loc[i] = [i, best_entity, best_score, worst_entity, worst_score]
-
-
-            else:
-                for real_copy in r_graphs:  # Iterate through the instantiated copies
-                    target = random.choice(list(real_copy.nodes() if remove == 'node' else real_copy.edges()))
-
-                    if print_output:
-                        if remove == 'node':
-                            print('Node removed at random iteration '+str(i)+': '+str(target))
-                        else:
-                            print('Edge removed at random iteration '+str(i)+': '+str(target))
-
-                    real_copy.remove_node(target) if remove == 'node' else real_copy.remove_edge(*target)
-                    r_composite, r_robustness, r_reach, r_connectivity = GCI(real_copy, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centrs_G_init)
-                    
-                    # Log indices for each modified graph
-                    r_connectedness_lst.append(r_composite)
-                    r_robustness_lst.append(r_robustness)
-                    r_reach_lst.append(r_reach)
-                    r_connectivity_lst.append(r_connectivity)
-                
-                if exclude_benchmark:
-                    results_df.loc[i] = [i, None,
-                                        sum(r_connectedness_lst) / len(r_connectedness_lst), sum(r_robustness_lst) / len(r_robustness_lst), sum(r_reach_lst) / len(r_reach_lst), sum(r_connectivity_lst) / len(r_connectivity_lst), 'random']
-                    continue
-                
-                
-                for benchmark in benchmark_graphs:
-                    target_b = random.choice(list(benchmark.nodes() if remove == 'node' else benchmark.edges()))
-                    benchmark.remove_node(target_b) if remove == 'node' else benchmark.remove_edge(*target_b)
-                    b_composite, b_robustness, b_reach, b_connectivity = GCI(benchmark, Gb_init, lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, aspl_Gb_init, dia_Gb_init, comp_centrs_Gb_init)
-                    
-                    b_connectedness_lst.append(b_composite)
-                    b_robustness_lst.append(b_robustness)
-                    b_reach_lst.append(b_reach)
-                    b_connectivity_lst.append(b_connectivity)
-
+                # Log indices for each modified graph
+                r_connectedness_lst.append(r_composite)
+                r_robustness_lst.append(r_robustness)
+                r_reach_lst.append(r_reach)
+                r_connectivity_lst.append(r_connectivity)
+            
+            if exclude_benchmark:
                 results_df.loc[i] = [i, None,
-                                    sum(r_connectedness_lst) / len(r_connectedness_lst), sum(r_robustness_lst) / len(r_robustness_lst), sum(r_reach_lst) / len(r_reach_lst), sum(r_connectivity_lst) / len(r_connectivity_lst), 
-                                    sum(b_connectedness_lst) / len(b_connectedness_lst), sum(b_robustness_lst) / len(b_robustness_lst), sum(b_reach_lst) / len(b_reach_lst), sum(b_connectivity_lst) / len(b_connectivity_lst)]
+                                    sum(r_connectedness_lst) / len(r_connectedness_lst), sum(r_robustness_lst) / len(r_robustness_lst), sum(r_reach_lst) / len(r_reach_lst), sum(r_connectivity_lst) / len(r_connectivity_lst), 'random']
+                continue
+            
+            
+            for benchmark in benchmark_graphs:
+                target_b = random.choice(list(benchmark.nodes() if remove == 'node' else benchmark.edges()))
+                benchmark.remove_node(target_b) if remove == 'node' else benchmark.remove_edge(*target_b)
+                b_composite, b_robustness, b_reach, b_connectivity = GCI(benchmark, lcs_Gb_init, nwc_Gb_init, nsc_Gb_init,  dia_Gb_init, comp_centrs_Gb_init)
+                
+                b_connectedness_lst.append(b_composite)
+                b_robustness_lst.append(b_robustness)
+                b_reach_lst.append(b_reach)
+                b_connectivity_lst.append(b_connectivity)
+
+            results_df.loc[i] = [i, None,
+                                sum(r_connectedness_lst) / len(r_connectedness_lst), sum(r_robustness_lst) / len(r_robustness_lst), sum(r_reach_lst) / len(r_reach_lst), sum(r_connectivity_lst) / len(r_connectivity_lst), 
+                                sum(b_connectedness_lst) / len(b_connectedness_lst), sum(b_robustness_lst) / len(b_robustness_lst), sum(b_reach_lst) / len(b_reach_lst), sum(b_connectivity_lst) / len(b_connectivity_lst)]
 
 
 
@@ -189,15 +109,9 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, ex
             func = CCI_v if remove == 'node' else lambda G: CCI_e(G, type='Li et al., 2021')
             target = func(G)
 
-            if print_output:
-                if remove == 'node':
-                    print('Node removed at greedy iteration '+str(i)+': '+str(target))
-                else:
-                    print('Edge removed at greedy iteration '+str(i)+': '+str(target))
-
             G.remove_node(target) if remove == 'node' else G.remove_edge(*target)
             target = target if remove == 'node' else set(target)                
-            composite, robustness, reach, connectivity = GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centrs_G_init)
+            composite, robustness, reach, connectivity = GCI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
 
             if exclude_benchmark:
                 results_df.loc[i] = [i, target, composite, robustness, reach, connectivity, 'greedy']
@@ -206,7 +120,7 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, ex
             for benchmark in benchmark_graphs:
                 benchmark_target = func(benchmark)
                 benchmark.remove_node(benchmark_target) if remove == 'node' else benchmark.remove_edge(*benchmark_target)
-                b_composite, b_robustness, b_reach, b_connectivity = GCI(benchmark, Gb_init, lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, aspl_Gb_init, dia_Gb_init, comp_centrs_Gb_init)
+                b_composite, b_robustness, b_reach, b_connectivity = GCI(benchmark, lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, dia_Gb_init, comp_centrs_Gb_init)
                 
                 b_connectedness_lst.append(b_composite)
                 b_robustness_lst.append(b_robustness)
@@ -232,14 +146,14 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, ex
     
             G.remove_edge(*target) if isinstance(target, tuple) else G.remove_node(target)
             
-            composite, robustness, reach, connectivity = GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centrs_G_init)
+            composite, robustness, reach, connectivity = GCI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
             if exclude_benchmark:
                 results_df.loc[i] = [i, set(target), composite, robustness, reach, connectivity, 'max_flow']
                 continue
 
             for benchmark in benchmark_graphs:
                 benchmark.remove_edge(*target)
-                b_composite, b_robustness, b_reach, b_connectivity = GCI(benchmark, Gb_init, lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, aspl_Gb_init, dia_Gb_init, comp_centrs_Gb_init)
+                b_composite, b_robustness, b_reach, b_connectivity = GCI(benchmark, lcs_Gb_init, nwc_Gb_init, nsc_Gb_init, dia_Gb_init, comp_centrs_Gb_init)
                 
                 b_connectedness_lst.append(b_composite)
                 b_robustness_lst.append(b_robustness)
@@ -250,8 +164,8 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, ex
 
     return results_df, results_best_worst_df
 
-def GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, comp_centr_G_init):
-    largest_component_size, num_weakly_connected, num_strongly_connected, average_shortest_path_length, diameter, node_composite_centrality = get_connectedness_metrics_of(G)
+def GCI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centr_G_init):
+    largest_component_size, num_weakly_connected, num_strongly_connected, diameter, node_composite_centrality = get_connectedness_metrics_of(G)
 
     """
     RESILIENCE 
@@ -271,8 +185,6 @@ def GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, 
     REACH 
     Quantifies the efficiency of information flow or reachability across the network. 
     It's reflected in the ratio of current average shortest path length and network diameter in comparison to their initial values.
-
-    # CHANGE FROM PROJECT THESIS: reach calculated correctly in terms of multiple components, using solely diameter
     """
     GCI_reach = (diameter / dia_G_init)
 
@@ -286,9 +198,6 @@ def GCI(G, G_init, lcs_G_init, nwc_G_init, nsc_G_init, aspl_G_init, dia_G_init, 
 
     """
     Calculate the composite connectedness index using the above calculated indices
-
-    # CHANGE FROM PROJECT THESIS: instead of multiplying the indices, we take the geometric mean of the indices
-
     """
     GCI = (GCI_robustness * GCI_reach * GCI_connectivity)**(1/3)
     
@@ -299,11 +208,11 @@ def CCI(G):
     Returns a dictionary of composite centrality values for each node in the given graph G
     """
     node_degree = nx.degree_centrality(G)
-    betweenness = nx.betweenness_centrality(create_digraph_of(G), normalized=True)
+    betweenness = nx.betweenness_centrality(G)
     closeness = nx.closeness_centrality(G)
     epsilon = 1e-6
     composite_centralities = {
-        country: node_degree.get(country, epsilon) * betweenness.get(country, epsilon) * closeness.get(country, epsilon) for country in G.nodes()
+        node: (node_degree.get(node, epsilon) * betweenness.get(node, epsilon) * closeness.get(node, epsilon))**(1/3) for node in G.nodes()
     }
     return composite_centralities
 
@@ -336,17 +245,6 @@ def CCI_e(G, type=''):
 
 #------------------------------------------------------------FROM HERE ONWARDS ARE HELPER FUNCTIONS------------------------------------------------------------
 
-def create_digraph_of(G):
-    """
-    Creates and returns a weighted nx.DiGraph from the given nx.MultiDiGraph G, where each edge has an aggregated flow attribute.
-    """
-    weighted_graph = nx.DiGraph()
-    for u, v, data in G.edges(data=True):
-        if not weighted_graph.has_edge(u, v):
-            weighted_graph.add_edge(u, v, flow=0)
-            weighted_graph[u][v]['flow'] += data.get('flow', 0)
-    return weighted_graph
-
 def get_connectedness_metrics_of(G):
     """
     Helper function that returns the following connectedness metrics of the given graph G:
@@ -360,11 +258,7 @@ def get_connectedness_metrics_of(G):
     largest_component = max(weakly_connected, key=len, default=[])
     largest_component_size = len(largest_component)
     num_weakly_connected = len(weakly_connected)
-    num_strongly_connected = len(list(nx.strongly_connected_components(G)))
-
-    strongly_connected = list(nx.strongly_connected_components(G))
-    largest_strongly_connected = max(strongly_connected, key=len, default=[])
-    largest_strongly_connected_graph = G.subgraph(largest_strongly_connected)
+    num_strongly_connected = len(list(nx.strongly_connected_components(G)))    
 
     diameter = 0
     if len(weakly_connected) > 1:
@@ -378,10 +272,8 @@ def get_connectedness_metrics_of(G):
     else:
         diameter = G.number_of_nodes() / nx.diameter(G.to_undirected())
 
-    average_shortest_path_length = nx.average_shortest_path_length(largest_strongly_connected_graph.to_undirected())
-
     node_composite_centrality = np.average(np.array(list(dict(CCI(G)).values())))
-    return largest_component_size, num_weakly_connected, num_strongly_connected, average_shortest_path_length, diameter, node_composite_centrality
+    return largest_component_size, num_weakly_connected, num_strongly_connected, diameter, node_composite_centrality
 
 
 def get_banchmark(G, model):
@@ -412,9 +304,14 @@ def plot_connectedness_fourway(results_dfs, titles, title_prefix="", include_ben
 
     metric_columns_list = [['composite', 'composite'], ['robustness', 'robustness'], ['reach', 'reach'], ['connectivity', 'connectivity']]
     benchmark_columns_list = [['composite_b', 'composite_b'], ['robustness_b', 'robustness_b'], ['reach_b', 'reach_b'], ['connectivity_b', 'connectivity_b']]
-    metric_labels_list = [['Real grid random', 'Real grid greedy'], ['Real grid random', 'Real grid greedy'], ['Real grid random', 'Real grid greedy'], ['Real grid random', 'Real grid greedy']]
+    metric_labels_list = [['random', 'greedy'], ['random', 'greedy'], ['random', 'greedy'], ['random', 'greedy']]
     benchmark_labels_list = [['ER grid random', 'ER grid greedy'], ['ER grid random', 'ER grid greedy'], ['ER grid random', 'ER grid greedy'], ['ER grid random', 'ER grid greedy']]
     ylabel = ['connectedness', 'robustness', 'reach', 'connectivity']
+
+    # Find the minimum x-axis limit where the 'composite' metric reaches 0
+    min_x_limit = float('inf')
+    for results_df in results_dfs:
+        min_x_limit = min(min_x_limit, results_df.loc[results_df['composite'] <= 0, 'iteration'].min())
     
     for i, ax in enumerate(axs):
         metric_columns = metric_columns_list[i]
@@ -436,6 +333,8 @@ def plot_connectedness_fourway(results_dfs, titles, title_prefix="", include_ben
         ax.set_xlabel('k iterations')
         ax.set_ylabel(ylabel[i])
         ax.set_title(titles[i])  
+
+        ax.set_xlim(left=0, right=min_x_limit)
         
         if i == 0:
             ax.legend()
@@ -443,39 +342,7 @@ def plot_connectedness_fourway(results_dfs, titles, title_prefix="", include_ben
     plt.suptitle(title_prefix, x=SUP_TITLE_X, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
     plt.tight_layout()
     plt.show()
-
-def compare_scigrid_entsog(data, metric=None):
-   
-    scigrid_columns = ['iteration_scigrid', 'composite_scigrid', 'robustness_scigrid', 'reach_scigrid', 'connectivity_scigrid']
-    entsog_columns = ['iteration_entsog', 'composite_entsog', 'robustness_entsog', 'reach_entsog', 'connectivity_entsog']
-
-    df = data.copy()
-
-    df['iteration_scigrid_scaled'] = (df['iteration_scigrid'] - df['iteration_scigrid'].min()) / (df['iteration_scigrid'].max() - df['iteration_scigrid'].min())
-    df['iteration_entsog_scaled'] = (df['iteration_entsog'] - df['iteration_entsog'].min()) / (df['iteration_entsog'].max() - df['iteration_entsog'].min())
-
-    # Plotting
-    plt.figure(figsize=(10, 6))
-
-    if metric == None:
-        for i, col in enumerate(scigrid_columns[1:]):
-            plt.plot(df['iteration_scigrid_scaled'], df[col], label=col, linestyle='-', color=f'C{i}', linewidth=2)
-
-        # Plotting entsog
-        for i, col in enumerate(entsog_columns[1:]):
-            plt.plot(df['iteration_entsog_scaled'], df[col], label=col, linestyle='--', color=f'C{i}', linewidth=2)
-
-    else:
-        plt.plot(df['iteration_scigrid_scaled'], df[metric+'_scigrid'], label=metric+'_scigrid', linestyle='-', color='C0', linewidth=2)
-        plt.plot(df['iteration_entsog_scaled'], df[metric+'_entsog'], label=metric+'_entsog', linestyle='--', color='C0', linewidth=2)
-
-    plt.xlabel('Scaled Iteration')
-    plt.ylabel('Metrics')
-    plt.suptitle('N-k project thesis algorithm, Scigrid and Entsog comparison', x=.375)
-    plt.title(data.name, loc='left')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    return fig
 
 def results_summary(df_, metric='', abs_or_pct='abs'):
 
