@@ -80,6 +80,7 @@ def plot_transform_analysis(df1_pair, df2_pair, index):
 
     plt.suptitle(title, x=SUP_TITLE_X_PLOT_TRANSLATED_ANALYSIS, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
     plt.show()
+    return fig
 
 
 
@@ -159,6 +160,8 @@ def plot_max_flow_and_centrality_comparison(df1_pair, df2_pair, index1, index2):
         # Print AUC and ROC information side by side
         print(f"\tAUC for {index1}: {auc1}  \t\t\t\t\t\t\t          AUC for {index2}: {auc2}")
         print(f"\t{index1}: [max ROC: {max_curvature1}, avg ROC: {average_curvature1}]    \t\t\t\t\t  {index2}: [max ROC: {max_curvature2}, avg ROC: {average_curvature2}]\n")
+
+    return fig
 
     
 

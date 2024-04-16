@@ -429,6 +429,7 @@ def plot_heuristic_comparison_biplot(df_list, title_prefix=""):
     plt.suptitle(title_prefix, x=0.2, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
     plt.tight_layout()
     plt.show()
+    return fig
 
 
 #------------------------------------------------------------FROM HERE ONWARDS ARE FUNCTIONS FOR RESULTS ANALYSIS------------------------------------------------------------
