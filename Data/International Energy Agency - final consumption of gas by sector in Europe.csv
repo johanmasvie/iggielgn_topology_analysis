@@ -1,0 +1,177 @@
+"final consumption of gas by sector in Europe",Value,Year,Units
+"Industry",5495813,2000, TJ gross
+"Industry",5540542,2001, TJ gross
+"Industry",5512010,2002, TJ gross
+"Industry",5549420,2003, TJ gross
+"Industry",5428642,2004, TJ gross
+"Industry",5525664,2005, TJ gross
+"Industry",5197372,2006, TJ gross
+"Industry",5303421,2007, TJ gross
+"Industry",5113378,2008, TJ gross
+"Industry",4251387,2009, TJ gross
+"Industry",4748673,2010, TJ gross
+"Industry",4782233,2011, TJ gross
+"Industry",4692068,2012, TJ gross
+"Industry",4737503,2013, TJ gross
+"Industry",4605118,2014, TJ gross
+"Industry",4478790,2015, TJ gross
+"Industry",4548216,2016, TJ gross
+"Industry",4752461,2017, TJ gross
+"Industry",4760901,2018, TJ gross
+"Industry",4678118,2019, TJ gross
+"Industry",4555139,2020, TJ gross
+"Industry",5006695,2021, TJ gross
+"Transport",186174,2000, TJ gross
+"Transport",227631,2001, TJ gross
+"Transport",219295,2002, TJ gross
+"Transport",273340,2003, TJ gross
+"Transport",305135,2004, TJ gross
+"Transport",298118,2005, TJ gross
+"Transport",286038,2006, TJ gross
+"Transport",389145,2007, TJ gross
+"Transport",400833,2008, TJ gross
+"Transport",303265,2009, TJ gross
+"Transport",306525,2010, TJ gross
+"Transport",324184,2011, TJ gross
+"Transport",258201,2012, TJ gross
+"Transport",296025,2013, TJ gross
+"Transport",292182,2014, TJ gross
+"Transport",259015,2015, TJ gross
+"Transport",259757,2016, TJ gross
+"Transport",277912,2017, TJ gross
+"Transport",279661,2018, TJ gross
+"Transport",286059,2019, TJ gross
+"Transport",207177,2020, TJ gross
+"Transport",261156,2021, TJ gross
+"Residential",5881127,2000, TJ gross
+"Residential",6132070,2001, TJ gross
+"Residential",6115573,2002, TJ gross
+"Residential",6400378,2003, TJ gross
+"Residential",6478315,2004, TJ gross
+"Residential",6525385,2005, TJ gross
+"Residential",6478367,2006, TJ gross
+"Residential",6062178,2007, TJ gross
+"Residential",6270181,2008, TJ gross
+"Residential",6132611,2009, TJ gross
+"Residential",6714436,2010, TJ gross
+"Residential",5992713,2011, TJ gross
+"Residential",6317546,2012, TJ gross
+"Residential",6406428,2013, TJ gross
+"Residential",5359002,2014, TJ gross
+"Residential",5627713,2015, TJ gross
+"Residential",5929943,2016, TJ gross
+"Residential",5925583,2017, TJ gross
+"Residential",5881730,2018, TJ gross
+"Residential",5774911,2019, TJ gross
+"Residential",5771401,2020, TJ gross
+"Residential",6264526,2021, TJ gross
+"Commercial and public services",1693959,2000, TJ gross
+"Commercial and public services",1781194,2001, TJ gross
+"Commercial and public services",1689405,2002, TJ gross
+"Commercial and public services",2019216,2003, TJ gross
+"Commercial and public services",2123793,2004, TJ gross
+"Commercial and public services",2174527,2005, TJ gross
+"Commercial and public services",2297716,2006, TJ gross
+"Commercial and public services",2113347,2007, TJ gross
+"Commercial and public services",2277385,2008, TJ gross
+"Commercial and public services",2212136,2009, TJ gross
+"Commercial and public services",2329280,2010, TJ gross
+"Commercial and public services",2042567,2011, TJ gross
+"Commercial and public services",2174016,2012, TJ gross
+"Commercial and public services",2301249,2013, TJ gross
+"Commercial and public services",2020375,2014, TJ gross
+"Commercial and public services",2138371,2015, TJ gross
+"Commercial and public services",2187672,2016, TJ gross
+"Commercial and public services",2188798,2017, TJ gross
+"Commercial and public services",2289241,2018, TJ gross
+"Commercial and public services",2238093,2019, TJ gross
+"Commercial and public services",2125736,2020, TJ gross
+"Commercial and public services",2297888,2021, TJ gross
+"Agriculture / forestry",203985,2000, TJ gross
+"Agriculture / forestry",203794,2001, TJ gross
+"Agriculture / forestry",194718,2002, TJ gross
+"Agriculture / forestry",199986,2003, TJ gross
+"Agriculture / forestry",224514,2004, TJ gross
+"Agriculture / forestry",218485,2005, TJ gross
+"Agriculture / forestry",192165,2006, TJ gross
+"Agriculture / forestry",196189,2007, TJ gross
+"Agriculture / forestry",188182,2008, TJ gross
+"Agriculture / forestry",175616,2009, TJ gross
+"Agriculture / forestry",218761,2010, TJ gross
+"Agriculture / forestry",216537,2011, TJ gross
+"Agriculture / forestry",226347,2012, TJ gross
+"Agriculture / forestry",223227,2013, TJ gross
+"Agriculture / forestry",203462,2014, TJ gross
+"Agriculture / forestry",187405,2015, TJ gross
+"Agriculture / forestry",190917,2016, TJ gross
+"Agriculture / forestry",187734,2017, TJ gross
+"Agriculture / forestry",193505,2018, TJ gross
+"Agriculture / forestry",193183,2019, TJ gross
+"Agriculture / forestry",187065,2020, TJ gross
+"Agriculture / forestry",195574,2021, TJ gross
+"Fishing",,2000, TJ gross
+"Fishing",,2001, TJ gross
+"Fishing",,2002, TJ gross
+"Fishing",,2003, TJ gross
+"Fishing",16,2004, TJ gross
+"Fishing",21,2005, TJ gross
+"Fishing",25,2006, TJ gross
+"Fishing",21,2007, TJ gross
+"Fishing",71,2008, TJ gross
+"Fishing",91,2009, TJ gross
+"Fishing",202,2010, TJ gross
+"Fishing",1458,2011, TJ gross
+"Fishing",2245,2012, TJ gross
+"Fishing",1441,2013, TJ gross
+"Fishing",1479,2014, TJ gross
+"Fishing",2324,2015, TJ gross
+"Fishing",1873,2016, TJ gross
+"Fishing",1896,2017, TJ gross
+"Fishing",1960,2018, TJ gross
+"Fishing",1712,2019, TJ gross
+"Fishing",2297,2020, TJ gross
+"Fishing",3824,2021, TJ gross
+"Other non-specified",310088,2000, TJ gross
+"Other non-specified",314175,2001, TJ gross
+"Other non-specified",277294,2002, TJ gross
+"Other non-specified",86911,2003, TJ gross
+"Other non-specified",90369,2004, TJ gross
+"Other non-specified",86390,2005, TJ gross
+"Other non-specified",141819,2006, TJ gross
+"Other non-specified",105144,2007, TJ gross
+"Other non-specified",95124,2008, TJ gross
+"Other non-specified",74758,2009, TJ gross
+"Other non-specified",90987,2010, TJ gross
+"Other non-specified",69784,2011, TJ gross
+"Other non-specified",62002,2012, TJ gross
+"Other non-specified",61038,2013, TJ gross
+"Other non-specified",52577,2014, TJ gross
+"Other non-specified",47322,2015, TJ gross
+"Other non-specified",43838,2016, TJ gross
+"Other non-specified",44906,2017, TJ gross
+"Other non-specified",41801,2018, TJ gross
+"Other non-specified",46846,2019, TJ gross
+"Other non-specified",44287,2020, TJ gross
+"Other non-specified",52286,2021, TJ gross
+"Non-energy use",797600,2000, TJ gross
+"Non-energy use",769455,2001, TJ gross
+"Non-energy use",711381,2002, TJ gross
+"Non-energy use",739112,2003, TJ gross
+"Non-energy use",1030968,2004, TJ gross
+"Non-energy use",1047793,2005, TJ gross
+"Non-energy use",971677,2006, TJ gross
+"Non-energy use",1007840,2007, TJ gross
+"Non-energy use",976527,2008, TJ gross
+"Non-energy use",810270,2009, TJ gross
+"Non-energy use",951739,2010, TJ gross
+"Non-energy use",1007011,2011, TJ gross
+"Non-energy use",989772,2012, TJ gross
+"Non-energy use",935262,2013, TJ gross
+"Non-energy use",909554,2014, TJ gross
+"Non-energy use",870309,2015, TJ gross
+"Non-energy use",854585,2016, TJ gross
+"Non-energy use",883522,2017, TJ gross
+"Non-energy use",875104,2018, TJ gross
+"Non-energy use",910431,2019, TJ gross
+"Non-energy use",927165,2020, TJ gross
+"Non-energy use",913808,2021, TJ gross
