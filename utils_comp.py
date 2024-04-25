@@ -7,7 +7,7 @@ import ast
 import pickle
 import random
 
-SUP_TITLE_X, SUP_TITLE_HA, SUP_TITLE_FONTSIZE = 0.285, 'center', 16
+SUP_TITLE_X, SUP_TITLE_HA, SUP_TITLE_FONTSIZE = 0.288, 'center', 16
 SUB_PLOTS_FIGSIZE, SUB_LOC, SUB_TITLE_FONTSIZE = (20, 6), 'left', 14
 
 SUP_TITLE_X_PLOT_TRANSLATED_ANALYSIS = 0.37
@@ -18,11 +18,6 @@ with open('graph_objects/G_simple_directed_iggielgn.pickle', 'rb') as f:
 
 NUM_NODES_IN_G_SIMPLE_DIRECTED = G_simple_directed.number_of_nodes()
 NUM_EDGES_IN_G_SIMPLE_DIRECTED = G_simple_directed.number_of_edges()
-
-
-import numpy as np
-import sympy as sp
-import matplotlib.pyplot as plt
 
 def plot_transform_analysis(df1_pair, df2_pair, index):
     fig, axs = plt.subplots(1, 2, figsize=SUB_PLOTS_FIGSIZE)
@@ -83,48 +78,89 @@ def plot_transform_analysis(df1_pair, df2_pair, index):
     return fig
 
 
-
-
 def plot_max_flow_and_centrality_comparison(df1_pair, df2_pair, index1, index2):
-    
-    fig, axs = plt.subplots(1, 2, figsize=SUB_PLOTS_FIGSIZE)
+    if len(df1_pair) == 1:
+        fig, ax = plt.subplots(1, 1, figsize=SUB_PLOTS_FIGSIZE)
+    else:
+        fig, axs = plt.subplots(1, 2, figsize=SUB_PLOTS_FIGSIZE)
+
     entity_type = 'node' if ',' not in str(df2_pair[0].iloc[-1]['removed_entity']) else 'edge'
 
-
-    for ax, df1, df2 in zip(axs, df1_pair, df2_pair):
+    if len(df1_pair) == 1:
+        df1 = df1_pair[0]
+        df2 = df2_pair[0]
         min_length = min(len(df1), len(df2))
         df1 = df1.iloc[:min_length]
         df2 = df2.iloc[:min_length]
 
         heuristic = 'random' if 'random' in str(df1.iloc[-1]['heuristic']) else 'greedy'
 
-        ax.set_title(f'{heuristic} heuristic', loc=SUB_LOC, fontsize=SUB_TITLE_FONTSIZE)
-        ax.plot(df1.index, df1[index1], label=f'{index1}')
-        ax.plot(df2.index, df2[index2], label=f'{index2}')
+        ax.plot(df1.index, df1[index1], label=f'{'GCI'}')
+        ax.plot(df2.index, df2[index2], label=f'{'Flow Capacity Robustness'}')
 
         # Add vertical line at intersection points
         intersection_points = np.argwhere(np.diff(np.sign(df1[index1] - df2[index2]))).flatten()
-        for point in intersection_points:
+        for i, point in enumerate(intersection_points):
             if point != 0:
-                ax.axvline(x=point, color='r', linestyle='--', alpha=0.4)
-                ax.text(point + 2, 0.9, 'k=' + str(point), rotation=0, alpha=0.4, color='r', verticalalignment='top')
+                ax.axvline(x=point, color='g', linestyle='--', alpha=0.3)
+                text_y = 0.9 - 0.1 * i  # Adjust vertical position based on index
+                ax.text(point + 0.1, text_y, 'k='+str(point), rotation=-90, alpha=0.3, color='g', verticalalignment='top')
+
         
         # Calculate absolute difference between the two curves
         ax.fill_between(df1.index, 0, np.abs(df1[index1] - df2[index2]), color='grey', alpha=0.1)
         ax.set_xlabel('k '+entity_type+' removals')
+      
+        # Add legend to the subplots
+        handles1, labels1 = ax.get_legend_handles_labels()
+        handles2 = [plt.Line2D([0], [0], color='g', linestyle='--', alpha=0.4),
+                    Patch(facecolor='grey', edgecolor='black', alpha=0.1)]
+        labels2 = ['intersection', 'absolute diff']
 
-    # Creating a separate legend for the intersection and absolute difference
-    intersection_legend = plt.Line2D([0], [0], color='r', linestyle='--', alpha=0.4, label='intersection')
-    abs_diff_legend = Patch(facecolor='grey', edgecolor='black', alpha=0.1, label='absolute diff')
-    fig.legend(handles=[intersection_legend, abs_diff_legend], loc='upper right', bbox_to_anchor=(0.75, 1.0))
+        handles = handles1 + handles2
+        labels = labels1 + labels2
+        ax.legend(handles, labels, loc='upper right')  # Adjust legend position
 
-    # Combine handles and labels for plot lines
-    handles, labels = axs[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper right', bbox_to_anchor=(0.9, 1.0))
+    else:
+        for ax, df1, df2 in zip(axs, df1_pair, df2_pair):
+            min_length = min(len(df1), len(df2))
+            df1 = df1.iloc[:min_length]
+            df2 = df2.iloc[:min_length]
 
-    plt.suptitle('Comparison of max flow and centrality based N-k analyses', x=SUP_TITLE_X, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
+            heuristic = 'random' if 'random' in str(df1.iloc[-1]['heuristic']) else 'greedy'
+
+            ax.set_title(f'{heuristic} removal heuristic', loc=SUB_LOC, fontsize=SUB_TITLE_FONTSIZE)
+            ax.plot(df1.index, df1[index1], label=f'{'GCI'}')
+            ax.plot(df2.index, df2[index2], label=f'{'Flow Capacity Robustness'}')
+
+            # Add vertical line at intersection points
+            intersection_points = np.argwhere(np.diff(np.sign(df1[index1] - df2[index2]))).flatten()
+            for point in intersection_points:
+                if point != 0:
+                    ax.axvline(x=point, color='r', linestyle='--', alpha=0.4)
+                    ax.text(point + 2, 0.9, 'k=' + str(point), rotation=0, alpha=0.4, color='r', verticalalignment='top')
+            
+            # Calculate absolute difference between the two curves
+            ax.fill_between(df1.index, 0, np.abs(df1[index1] - df2[index2]), color='grey', alpha=0.1)
+            ax.set_xlabel('k '+entity_type+' removals')
+
+        # Add legend to the subplots
+        handles, labels = axs[0].get_legend_handles_labels()
+        axs[0].legend(handles, labels, loc='upper right')  # Adjust legend position
+
+    # Adjust legend position
+    plt.subplots_adjust(left=0.15, bottom=0.15, right=0.85, top=0.85, wspace=0.3, hspace=0.3)
+
+    # plt.suptitle('Comparison of max flow and centrality based N-k analyses', x=SUP_TITLE_X, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
     plt.show()
-    
+
+    print_ROC_AUC_info(df1_pair, df2_pair, index1, index2)
+
+    return fig
+
+
+
+def print_ROC_AUC_info(df1_pair, df2_pair, index1, index2):
     for df1, df2 in zip(df1_pair, df2_pair):
         min_length = min(len(df1), len(df2))
         df1 = df1.iloc[:min_length]
@@ -160,11 +196,6 @@ def plot_max_flow_and_centrality_comparison(df1_pair, df2_pair, index1, index2):
         # Print AUC and ROC information side by side
         print(f"\tAUC for {index1}: {auc1}  \t\t\t\t\t\t\t          AUC for {index2}: {auc2}")
         print(f"\t{index1}: [max ROC: {max_curvature1}, avg ROC: {average_curvature1}]    \t\t\t\t\t  {index2}: [max ROC: {max_curvature2}, avg ROC: {average_curvature2}]\n")
-
-    return fig
-
-    
-
 
 
 def common_entities(df1_, df2_):
