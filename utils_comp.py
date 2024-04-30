@@ -115,7 +115,8 @@ def plot_max_flow_and_centrality_comparison(df1_pair, df2_pair, index1, index2):
         handles1, labels1 = ax.get_legend_handles_labels()
         handles2 = [plt.Line2D([0], [0], color='g', linestyle='--', alpha=0.4),
                     Patch(facecolor='grey', edgecolor='black', alpha=0.1)]
-        labels2 = ['intersection', 'absolute diff']
+        labels2 = ['absolute diff']
+        
 
         handles = handles1 + handles2
         labels = labels1 + labels2
