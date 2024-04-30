@@ -37,7 +37,7 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
         else:
             diameter = G.number_of_nodes() / nx.diameter(G.to_undirected())
 
-        node_composite_centrality = np.average(np.array(list(dict(CCI(G)).values())))
+        node_composite_centrality = np.average(np.array(list(dict(CCI(G.subgraph(largest_component))).values())))
         return len(largest_component), len(weakly_connected), len(strongly_connected), diameter, node_composite_centrality
     
    
@@ -139,6 +139,7 @@ def NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centr_G_init):
     It's estimated by comparing the current median node degree to the initial median node degree.
     """
     NPI_connectivity = (node_composite_centrality / comp_centr_G_init)
+    print("Connectivity: ", NPI_connectivity)
 
 
     """
@@ -157,9 +158,8 @@ def CCI(G):
     closeness = nx.closeness_centrality(G)
     epsilon = 1e-6
     composite_centralities = {
-        node: (node_degree.get(node, epsilon) * betweenness.get(node, epsilon) * closeness.get(node, epsilon)) for node in G.nodes()
+        node: (node_degree.get(node, epsilon) * betweenness.get(node, epsilon) * closeness.get(node, epsilon))**(1/3) for node in G.nodes()
     }
-    print('Node degree:' +str(node_degree), 'Betweenness:' +str(betweenness), 'Closeness:' +str(closeness), 'Composite centrality:' +str(composite_centralities))
     return composite_centralities
 
 def CCI_v(G):
@@ -219,7 +219,7 @@ def get_connectedness_metrics_of(G):
     else:
         diameter = G.number_of_nodes() / nx.diameter(G.to_undirected())
 
-    node_composite_centrality = np.average(np.array(list(dict(CCI(G)).values())))
+    node_composite_centrality = np.average(np.array(list(dict(CCI(G.subgraph(largest_component))).values())))
     return largest_component_size, num_weakly_connected, num_strongly_connected, diameter, node_composite_centrality
 
 
@@ -247,8 +247,8 @@ def plot_comparison(greedy_df, random_df, entity='node'):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
 
     # Define the range of data to be displayed in each subplot
-    left_plot_range = slice(0, 500)  # Display first 500 iterations in left plot
-    right_plot_range = slice(0, 60)  # Display first 200 iterations in right plot
+    left_plot_range = slice(0, 1000)  # Display first 500 iterations in left plot
+    right_plot_range = slice(0, 100)  # Display first 200 iterations in right plot
 
     # Plot 'robustness', 'reach', and 'connectivity' on the left subplot
     greedy_colors = ['blue', 'green', 'red']
@@ -272,6 +272,9 @@ def plot_comparison(greedy_df, random_df, entity='node'):
     ax2.set_ylabel('NPI')
     ax2.legend()
     ax2.set_title('(b)', loc='left')
+
+    plt.savefig('saved_plots/iggielgn/centrality/'+entity+'_removals.png', bbox_inches='tight', pad_inches=0.1)
+
 
     # Show the figure
     plt.tight_layout()
