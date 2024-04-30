@@ -17,7 +17,7 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
 
     G = G_.copy()
 
-    results_df = pd.DataFrame(columns=['iteration', 'removed_entity', 'composite', 'robustness', 'reach', 'connectivity', 'heuristic'])
+    results_df = pd.DataFrame(columns=['iteration', 'removed_entity', 'composite', 'connectedness', 'reach', 'connectivity', 'heuristic'])
 
     def assess_grid_connectedness_init(G):
 
@@ -49,7 +49,7 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
 
         # For the first iteration, calculate and store initial connectedness indices
         if i == 0:  
-            composite, robustness, reach, connectivity = GCI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
+            composite, robustness, reach, connectivity = NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
 
             results_df.loc[i] = [i, None, composite, robustness, reach, connectivity, None]
             continue
@@ -62,7 +62,7 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
                 target = random.choice(list(real_copy.nodes() if remove == 'node' else real_copy.edges()))
 
                 real_copy.remove_node(target) if remove == 'node' else real_copy.remove_edge(*target)
-                r_composite, r_robustness, r_reach, r_connectivity = GCI(real_copy, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
+                r_composite, r_robustness, r_reach, r_connectivity = NPI(real_copy, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
                 
                 # Log indices for each modified graph
                 r_connectedness_lst.append(r_composite)
@@ -80,7 +80,7 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
 
             G.remove_node(target) if remove == 'node' else G.remove_edge(*target)
             target = target if remove == 'node' else set(target)                
-            composite, robustness, reach, connectivity = GCI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
+            composite, robustness, reach, connectivity = NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
 
             results_df.loc[i] = [i, target, composite, robustness, reach, connectivity, 'greedy']
 
@@ -105,7 +105,7 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
     
             G.remove_edge(*target) if isinstance(target, tuple) else G.remove_node(target)
             
-            composite, robustness, reach, connectivity = GCI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
+            composite, robustness, reach, connectivity = NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
             results_df.loc[i] = [i, set(target), composite, robustness, reach, connectivity, 'max_flow']
             continue
 
@@ -113,40 +113,40 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
 
     return results_df
 
-def GCI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centr_G_init):
+def NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centr_G_init):
     largest_component_size, num_weakly_connected, num_strongly_connected, diameter, node_composite_centrality = get_connectedness_metrics_of(G)
 
     """
-    RESILIENCE 
+    CONNECTEDNESS 
     Measures the network's resilience against random failures or targeted attacks. 
     It's approximated by the relative sizes of the largest connected component, weakly connected components, and strongly connected components.
 
     """
 
         
-    GCI_robustness = (largest_component_size / lcs_G_init) * (nwc_G_init / num_weakly_connected) * ( nsc_G_init / num_strongly_connected)
+    NPI_connectedness = (largest_component_size / lcs_G_init) * (nwc_G_init / num_weakly_connected) * ( nsc_G_init / num_strongly_connected)
 
     """
     REACH 
     Quantifies the efficiency of information flow or reachability across the network. 
     It's reflected in the ratio of current average shortest path length and network diameter in comparison to their initial values.
     """
-    GCI_reach = (diameter / dia_G_init)
+    NPI_reach = (diameter / dia_G_init)
 
     """
     CONNECTIVITY 
     Represents the centrality or average connectivity of the network. 
     It's estimated by comparing the current median node degree to the initial median node degree.
     """
-    GCI_connectivity = (node_composite_centrality / comp_centr_G_init)
+    NPI_connectivity = (node_composite_centrality / comp_centr_G_init)
 
 
     """
     Calculate the composite connectedness index using the above calculated indices
     """
-    GCI = GCI_robustness * GCI_reach * GCI_connectivity
+    NPI = NPI_connectedness * NPI_reach * NPI_connectivity
     
-    return GCI, GCI_robustness, GCI_reach, GCI_connectivity
+    return NPI, NPI_connectedness, NPI_reach, NPI_connectivity
 
 def CCI(G):
     """
@@ -159,6 +159,7 @@ def CCI(G):
     composite_centralities = {
         node: (node_degree.get(node, epsilon) * betweenness.get(node, epsilon) * closeness.get(node, epsilon)) for node in G.nodes()
     }
+    print('Node degree:' +str(node_degree), 'Betweenness:' +str(betweenness), 'Closeness:' +str(closeness), 'Composite centrality:' +str(composite_centralities))
     return composite_centralities
 
 def CCI_v(G):
@@ -241,48 +242,7 @@ def get_banchmark(G, model):
     
 #------------------------------------------------------------FROM HERE ONWARDS ARE FUNCTIONS FOR PLOTTING------------------------------------------------------------
     
-def plot_connectedness_fourway(results_dfs, titles, title_prefix=""):
-    colors_set1 = ['peachpuff', 'powderblue']  
-    colors_set2 = ['orange', 'dodgerblue']  
-    
-    fig, axs = plt.subplots(2, 2, figsize=SUB_PLOTS_FIGSIZE)
-    axs = axs.flatten()
-
-    metric_columns_list = [['composite', 'composite'], ['robustness', 'robustness'], ['reach', 'reach'], ['connectivity', 'connectivity']]
-    metric_labels_list = [['random', 'greedy'], ['random', 'greedy'], ['random', 'greedy'], ['random', 'greedy']]
-    ylabel = ['connectedness', 'robustness', 'reach', 'connectivity']
-
-    # Find the minimum x-axis limit where the 'composite' metric reaches 0
-    min_x_limit = 2500
-    for results_df in results_dfs:
-        min_x_limit = min(min_x_limit, results_df.loc[results_df['composite'] <= 0, 'iteration'].min())
-    
-    for i, ax in enumerate(axs):
-        metric_columns = metric_columns_list[i]
-        metric_labels = metric_labels_list[i]
-       
-        
-        for j, results_df in enumerate(results_dfs):
-            if j == 0:
-                ax.plot(results_df['iteration'], results_df[metric_columns[j]], label=metric_labels[j], color=colors_set1[0])  
-            else:
-                ax.plot(results_df['iteration'], results_df[metric_columns[j]], label=metric_labels[j], color=colors_set2[0])
-        
-        ax.set_xlabel('k iterations')
-        ax.set_ylabel(ylabel[i])
-        ax.set_title(titles[i])  
-
-        ax.set_xlim(left=0, right=min_x_limit)
-        
-        if i == 0:
-            ax.legend()
-        
-    plt.suptitle(title_prefix, x=SUP_TITLE_X, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
-    plt.tight_layout()
-    plt.show()
-    return fig
-
-def plot_comparison(greedy_df, random_df):
+def plot_comparison(greedy_df, random_df, entity='node'):
     # Create a new figure with two subplots
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
 
@@ -293,29 +253,28 @@ def plot_comparison(greedy_df, random_df):
     # Plot 'robustness', 'reach', and 'connectivity' on the left subplot
     greedy_colors = ['blue', 'green', 'red']
     random_colors = ['lightblue', 'lightgreen', 'salmon']
-    metrics = ['robustness', 'reach', 'connectivity']
+    metrics = ['connectedness', 'reach', 'connectivity']
     labels = ['Greedy', 'Random']
 
     for metric, greedy_color, random_color in zip(metrics, greedy_colors, random_colors):
         ax1.plot(greedy_df['iteration'].loc[left_plot_range], greedy_df[metric].loc[left_plot_range], color=greedy_color, label=f'{metric}, {labels[0].lower()}')
         ax1.plot(random_df['iteration'].loc[left_plot_range], random_df[metric].loc[left_plot_range], '--', color=random_color, label=f'{metric}, {labels[1].lower()}')
 
-    ax1.set_xlabel('k node removals')
+    ax1.set_xlabel('k '+entity+' removals')
     ax1.legend()
     ax1.set_title('(a)', loc='left')
 
-    # Plot 'composite' on the right subplot
-    ax2.plot(greedy_df['iteration'].loc[right_plot_range], greedy_df['composite'].loc[right_plot_range], color='blue', label='GCI, greedy')
-    ax2.plot(random_df['iteration'].loc[right_plot_range], random_df['composite'].loc[right_plot_range], '--', color='lightblue', label='GCI, random')
+    # Plot 'NPI' on the right subplot
+    ax2.plot(greedy_df['iteration'].loc[right_plot_range], greedy_df['NPI'].loc[right_plot_range], color='blue', label='NPI, greedy')
+    ax2.plot(random_df['iteration'].loc[right_plot_range], random_df['NPI'].loc[right_plot_range], '--', color='lightblue', label='NPI, random')
 
-    ax2.set_xlabel('k node removals')
-    ax2.set_ylabel('GCI')
+    ax2.set_xlabel('k '+entity+' removals')
+    ax2.set_ylabel('NPI')
     ax2.legend()
     ax2.set_title('(b)', loc='left')
 
     # Show the figure
     plt.tight_layout()
-    return fig
 
 
 def results_summary(df_, metric='', abs_or_pct='abs'):
@@ -368,3 +327,45 @@ def results_summary(df_, metric='', abs_or_pct='abs'):
     print(f"Variation in damage per entity removal: {round(df.head(10)['diff'].std(), 2)}")
     if not pd.isna(zero_metric_iteration):
         print(f"The metric reaches 0 at iteration {zero_metric_iteration}.")
+
+
+
+def average_dfs(df1, df2, metrics_to_average):
+    # Find the DataFrame with the most rows
+    if len(df1) >= len(df2):
+        longest_df = df1.copy()
+        shorter_df = df2.copy()
+    else:
+        longest_df = df2.copy()
+        shorter_df = df1.copy()
+
+    # Initialize a list to store the dictionaries representing rows of the resulting DataFrame
+    rows = []
+
+    # Iterate through the rows of the shorter DataFrame
+    for i, row in shorter_df.iterrows():
+        # Get the 'iteration' value from the shorter DataFrame
+        iteration_value = row['iteration']
+
+        # Calculate the average for each specified metric
+        averaged_values = {'iteration': iteration_value}
+        for metric in metrics_to_average:
+            if metric in df1.columns and metric in df2.columns:
+                averaged_values[metric] = (df1[metric][i] + df2[metric][i]) / 2
+            elif metric in df1.columns:
+                averaged_values[metric] = df1[metric][i]
+            elif metric in df2.columns:
+                averaged_values[metric] = df2[metric][i]
+
+        # Add the averaged values to the list
+        rows.append(averaged_values)
+
+    # Add remaining rows from the longer DataFrame
+    if len(longest_df) > len(shorter_df):
+        remaining_rows = longest_df.iloc[len(shorter_df):].to_dict('records')
+        rows.extend(remaining_rows)
+
+    # Create the DataFrame from the list of dictionaries
+    averaged_df = pd.DataFrame(rows)
+
+    return averaged_df
