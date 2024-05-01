@@ -95,7 +95,7 @@ def plot_max_flow_and_centrality_comparison(df1_pair, df2_pair, index1, index2):
 
         heuristic = 'random' if 'random' in str(df1.iloc[-1]['heuristic']) else 'greedy'
 
-        ax.plot(df1.index, df1[index1], label=f'{'GCI'}')
+        ax.plot(df1.index, df1[index1], label=f'{'NPI'}')
         ax.plot(df2.index, df2[index2], label=f'{'Flow Capacity Robustness'}')
 
         # Add vertical line at intersection points
@@ -115,7 +115,8 @@ def plot_max_flow_and_centrality_comparison(df1_pair, df2_pair, index1, index2):
         handles1, labels1 = ax.get_legend_handles_labels()
         handles2 = [plt.Line2D([0], [0], color='g', linestyle='--', alpha=0.4),
                     Patch(facecolor='grey', edgecolor='black', alpha=0.1)]
-        labels2 = ['intersection', 'absolute diff']
+        labels2 = ['absolute diff']
+        
 
         handles = handles1 + handles2
         labels = labels1 + labels2
@@ -130,7 +131,7 @@ def plot_max_flow_and_centrality_comparison(df1_pair, df2_pair, index1, index2):
             heuristic = 'random' if 'random' in str(df1.iloc[-1]['heuristic']) else 'greedy'
 
             ax.set_title(f'{heuristic} removal heuristic', loc=SUB_LOC, fontsize=SUB_TITLE_FONTSIZE)
-            ax.plot(df1.index, df1[index1], label=f'{'GCI'}')
+            ax.plot(df1.index, df1[index1], label=f'{'NPI'}')
             ax.plot(df2.index, df2[index2], label=f'{'Flow Capacity Robustness'}')
 
             # Add vertical line at intersection points

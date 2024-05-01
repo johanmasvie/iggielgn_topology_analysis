@@ -293,9 +293,9 @@ def plot_heuristic_comparison_biplot(df_list):
         if heuristic == 'max flow edge count':
             heuristic = 'Edge count'
         if heuristic =='max flow edge flows':
-            heuristic = 'Max flow'
+            heuristic = 'FC'
         if heuristic == 'load rate':
-            heuristic = 'Load rate'
+            heuristic = 'FCR'
         if heuristic == 'wfcr':
             heuristic = 'WFCR'
         ax.plot(df.index[:shortest_df_length], df[series_name][:shortest_df_length], label=f'{heuristic}')
