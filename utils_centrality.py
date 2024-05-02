@@ -17,7 +17,7 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
 
     G = G_.copy()
 
-    results_df = pd.DataFrame(columns=['iteration', 'removed_entity', 'composite', 'connectedness', 'reach', 'connectivity', 'heuristic'])
+    results_df = pd.DataFrame(columns=['iteration', 'removed_entity', 'NPI', 'connectedness', 'reach', 'connectivity', 'heuristic'])
 
     def assess_grid_connectedness_init(G):
 
@@ -139,8 +139,6 @@ def NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centr_G_init):
     It's estimated by comparing the current median node degree to the initial median node degree.
     """
     NPI_connectivity = (node_composite_centrality / comp_centr_G_init)
-    print("Connectivity: ", NPI_connectivity)
-
 
     """
     Calculate the composite connectedness index using the above calculated indices

@@ -288,23 +288,36 @@ def plot_heuristic_comparison_biplot(df_list):
     series_name = df_list[0].columns[:2].tolist()[1]  
     shortest_df_length = min(len(df) for df in df_list) + 50
 
+    
+    
+    marker_styles = {
+    'max flow edge flows': 's',  # square
+    'load rate': '^',            # triangle
+    'wfcr': 'o'                  # circle
+    }
+
     for df in df_list:
         heuristic = str(df.iloc[1]['heuristic']).replace('_', ' ')
-        if heuristic == 'max flow edge count':
-            heuristic = 'Edge count'
-        if heuristic =='max flow edge flows':
-            heuristic = 'FC'
-        if heuristic == 'load rate':
-            heuristic = 'FCR'
-        if heuristic == 'wfcr':
-            heuristic = 'WFCR'
-        ax.plot(df.index[:shortest_df_length], df[series_name][:shortest_df_length], label=f'{heuristic}')
+        heuristic_label = heuristic  # For labeling in legend
+        
+        # Check if heuristic is in marker_styles, if not, assign a default marker
+        marker = marker_styles.get(heuristic, 'o')  
+        
+        # Update heuristic label for legend if needed
+        if heuristic == 'max flow edge flows': 
+            heuristic_label = 'FC'
+        elif heuristic == 'load rate': 
+            heuristic_label = 'FCR'
+        elif heuristic == 'wfcr': 
+            heuristic_label = 'WFCR'
+        
+        ax.plot(df.index[:shortest_df_length], df[series_name][:shortest_df_length], 
+                label=heuristic_label, marker=marker, linewidth=1, markersize=5)  
+
 
     remove = 'edge' if isinstance(df_list[0].iloc[1]['removed_entity'], set) else 'node'
-
-
     ax.set_xlabel('k '+remove+' removals')
-    ax.set_ylabel(series_name.replace('_', ' ')) 
+    ax.set_ylabel('CRMF') 
     ax.legend()
 
     # plt.title('N-k max flow, '+ remove + ' removals', x=0.2, ha='center', fontsize=12) 
