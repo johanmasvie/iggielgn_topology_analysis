@@ -288,8 +288,6 @@ def plot_heuristic_comparison_biplot(df_list):
     series_name = df_list[0].columns[:2].tolist()[1]  
     shortest_df_length = min(len(df) for df in df_list) + 50
 
-    
-    
     marker_styles = {
     'max flow edge flows': 's',  # square
     'load rate': '^',            # triangle
@@ -299,25 +297,33 @@ def plot_heuristic_comparison_biplot(df_list):
     for df in df_list:
         heuristic = str(df.iloc[1]['heuristic']).replace('_', ' ')
         heuristic_label = heuristic  # For labeling in legend
+
+        if heuristic == 'random':
+            ax.plot(df.index[:shortest_df_length], df[series_name][:shortest_df_length], '--',
+                label=heuristic_label, linewidth=1)  
+            continue
         
         # Check if heuristic is in marker_styles, if not, assign a default marker
-        marker = marker_styles.get(heuristic, 'o')  
+        marker = marker_styles.get(heuristic, '0')  
         
         # Update heuristic label for legend if needed
         if heuristic == 'max flow edge flows': 
-            heuristic_label = 'FC'
+            heuristic_label = '$I^{FC}$'
         elif heuristic == 'load rate': 
-            heuristic_label = 'FCR'
+            heuristic_label = '$I^{FCR}$'
         elif heuristic == 'wfcr': 
-            heuristic_label = 'WFCR'
+            heuristic_label = '$I^{WFCR}$'
         
         ax.plot(df.index[:shortest_df_length], df[series_name][:shortest_df_length], 
-                label=heuristic_label, marker=marker, linewidth=1, markersize=5)  
+                label=heuristic_label, marker=marker, linewidth=1, markersize=5, markevery=5)  
 
+    # Add a text box with a description of the markers on the right side of the left subplot
+    fig.text(x=0.4, y=0.35, s='markers every\n5 iterations', alpha=0.5,
+         bbox=dict(facecolor='white', edgecolor='lightgray')) 
 
     remove = 'edge' if isinstance(df_list[0].iloc[1]['removed_entity'], set) else 'node'
     ax.set_xlabel('k '+remove+' removals')
-    ax.set_ylabel('CRMF') 
+    ax.set_ylabel('Flow Capacity Robustness, FCR') 
     ax.legend()
 
     # plt.title('N-k max flow, '+ remove + ' removals', x=0.2, ha='center', fontsize=12) 

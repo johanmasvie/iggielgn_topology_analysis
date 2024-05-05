@@ -37,19 +37,22 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
         else:
             diameter = G.number_of_nodes() / nx.diameter(G.to_undirected())
 
-        node_composite_centrality = np.average(np.array(list(dict(CCI(G.subgraph(largest_component))).values())))
-        return len(largest_component), len(weakly_connected), len(strongly_connected), diameter, node_composite_centrality
+        CCI_dict = CCI(G.subgraph(largest_component))
+        node_composite_centrality = np.average(np.array(list(dict(CCI_dict).values())))
+        next_target_node = max(CCI_dict, key=CCI_dict.get)
+
+        return len(largest_component), len(weakly_connected), len(strongly_connected), diameter, node_composite_centrality, next_target_node
     
    
     r_graphs = [G.copy() for _ in range(n_benchmarks)]
-    lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init = assess_grid_connectedness_init(G)
+    lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init, next_target_node = assess_grid_connectedness_init(G)
     
     for i in tqdm(range(0, k_removals + 1), desc='N-k iterations'):  
         r_connectedness_lst, r_robustness_lst, r_reach_lst, r_connectivity_lst = [], [], [], []
 
         # For the first iteration, calculate and store initial connectedness indices
         if i == 0:  
-            composite, robustness, reach, connectivity = NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
+            composite, robustness, reach, connectivity, next_target_node = NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
 
             results_df.loc[i] = [i, None, composite, robustness, reach, connectivity, None]
             continue
@@ -62,7 +65,7 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
                 target = random.choice(list(real_copy.nodes() if remove == 'node' else real_copy.edges()))
 
                 real_copy.remove_node(target) if remove == 'node' else real_copy.remove_edge(*target)
-                r_composite, r_robustness, r_reach, r_connectivity = NPI(real_copy, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
+                r_composite, r_robustness, r_reach, r_connectivity, _ = NPI(real_copy, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
                 
                 # Log indices for each modified graph
                 r_connectedness_lst.append(r_composite)
@@ -75,12 +78,14 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
                                 sum(r_connectedness_lst) / len(r_connectedness_lst), sum(r_robustness_lst) / len(r_robustness_lst), sum(r_reach_lst) / len(r_reach_lst), sum(r_connectivity_lst) / len(r_connectivity_lst), 'random']
 
         elif heuristic == 'greedy':
-            func = CCI_v if remove == 'node' else lambda G: CCI_e(G, type='Li et al., 2021')
-            target = func(G)
+            # func = CCI_v if remove == 'node' else lambda G: CCI_e(G, type='Li et al., 2021')
+            # target = func(G)
+
+            target = CCI_e(G, type='Li et al., 2021') if remove == 'edge' else next_target_node
 
             G.remove_node(target) if remove == 'node' else G.remove_edge(*target)
             target = target if remove == 'node' else set(target)                
-            composite, robustness, reach, connectivity = NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
+            composite, robustness, reach, connectivity, next_target_node = NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
 
             results_df.loc[i] = [i, target, composite, robustness, reach, connectivity, 'greedy']
 
@@ -105,7 +110,7 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
     
             G.remove_edge(*target) if isinstance(target, tuple) else G.remove_node(target)
             
-            composite, robustness, reach, connectivity = NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
+            composite, robustness, reach, connectivity, _ = NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
             results_df.loc[i] = [i, set(target), composite, robustness, reach, connectivity, 'max_flow']
             continue
 
@@ -114,7 +119,7 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
     return results_df
 
 def NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centr_G_init):
-    largest_component_size, num_weakly_connected, num_strongly_connected, diameter, node_composite_centrality = get_connectedness_metrics_of(G)
+    largest_component_size, num_weakly_connected, num_strongly_connected, diameter, node_composite_centrality, next_target_node = get_connectedness_metrics_of(G)
 
     """
     CONNECTEDNESS 
@@ -145,7 +150,7 @@ def NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centr_G_init):
     """
     NPI = NPI_connectedness * NPI_reach * NPI_connectivity
     
-    return NPI, NPI_connectedness, NPI_reach, NPI_connectivity
+    return NPI, NPI_connectedness, NPI_reach, NPI_connectivity, next_target_node
 
 def CCI(G):
     """
@@ -217,8 +222,13 @@ def get_connectedness_metrics_of(G):
     else:
         diameter = G.number_of_nodes() / nx.diameter(G.to_undirected())
 
-    node_composite_centrality = np.average(np.array(list(dict(CCI(G.subgraph(largest_component))).values())))
-    return largest_component_size, num_weakly_connected, num_strongly_connected, diameter, node_composite_centrality
+    # node_composite_centrality = np.average(np.array(list(dict(CCI(G.subgraph(largest_component))).values())))
+
+    CCI_dict = CCI(G.subgraph(largest_component))
+    node_composite_centrality = np.average(np.array(list(dict(CCI_dict).values())))
+    next_target_node = max(CCI_dict, key=CCI_dict.get)
+
+    return largest_component_size, num_weakly_connected, num_strongly_connected, diameter, node_composite_centrality, next_target_node
 
 
 def get_banchmark(G, model):
@@ -254,22 +264,33 @@ def plot_comparison(greedy_df, random_df, entity='node'):
     metrics = ['connectedness', 'reach', 'connectivity']
     labels = ['Greedy', 'Random']
 
+    
+    marker_styles = {
+    'connectedness': 's',  # square
+    'reach': '^',            # triangle
+    'connectivity': 'o'                  # circle
+    }
+
     for metric, greedy_color, random_color in zip(metrics, greedy_colors, random_colors):
-        ax1.plot(greedy_df['iteration'].loc[left_plot_range], greedy_df[metric].loc[left_plot_range], color=greedy_color, label=f'{metric}, {labels[0].lower()}')
-        ax1.plot(random_df['iteration'].loc[left_plot_range], random_df[metric].loc[left_plot_range], '--', color=random_color, label=f'{metric}, {labels[1].lower()}')
+        marker = marker_styles.get(metric, 'o')  
+        ax1.plot(greedy_df['iteration'].loc[left_plot_range], greedy_df[metric].loc[left_plot_range], marker=marker, color=greedy_color, label=f'{metric}, {labels[0].lower()}',linewidth=1, markersize=5, markevery=25)
+        ax1.plot(random_df['iteration'].loc[left_plot_range], random_df[metric].loc[left_plot_range], '--', marker=marker, color=random_color, label=f'{metric}, {labels[1].lower()}', linewidth=1, markersize=5, markevery=25)
+
+    # Add a text box with a description of the markers on the right side of the left subplot
+    fig.text(x=0.36, y=0.35, s='markers every 25 iterations', alpha=0.5,
+         bbox=dict(facecolor='white', edgecolor='lightgray')) 
 
     ax1.set_xlabel('k '+entity+' removals')
-    ax1.legend()
-    ax1.set_title('(a)', loc='left')
+    ax1.legend(loc='upper right')
+    ax1.set_ylabel('Network Performance Index, NPI')
 
     # Plot 'NPI' on the right subplot
     ax2.plot(greedy_df['iteration'].loc[right_plot_range], greedy_df['NPI'].loc[right_plot_range], color='blue', label='NPI, greedy')
     ax2.plot(random_df['iteration'].loc[right_plot_range], random_df['NPI'].loc[right_plot_range], '--', color='lightblue', label='NPI, random')
 
     ax2.set_xlabel('k '+entity+' removals')
-    ax2.set_ylabel('NPI')
+    
     ax2.legend()
-    ax2.set_title('(b)', loc='left')
 
     plt.savefig('saved_plots/iggielgn/centrality/'+entity+'_removals.png', bbox_inches='tight', pad_inches=0.1)
 
