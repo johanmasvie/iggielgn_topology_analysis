@@ -251,52 +251,65 @@ def get_banchmark(G, model):
 #------------------------------------------------------------FROM HERE ONWARDS ARE FUNCTIONS FOR PLOTTING------------------------------------------------------------
     
 def plot_comparison(greedy_df, random_df, entity='node'):
-    # Create a new figure with two subplots
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
+    # Create figure for the first plot
+    fig1, ax1 = plt.subplots(figsize=(10, 6))
 
-    # Define the range of data to be displayed in each subplot
-    left_plot_range = slice(0, 1000)  # Display first 500 iterations in left plot
-    right_plot_range = slice(0, 100)  # Display first 200 iterations in right plot
+    # Define the range of data to be displayed in the plot
+    plot_range = slice(0, 1000)  # Display first 1000 iterations
 
-    # Plot 'robustness', 'reach', and 'connectivity' on the left subplot
+    # Plot 'robustness', 'reach', and 'connectivity'
     greedy_colors = ['blue', 'green', 'red']
     random_colors = ['lightblue', 'lightgreen', 'salmon']
     metrics = ['connectedness', 'reach', 'connectivity']
     labels = ['Greedy', 'Random']
-
     
     marker_styles = {
-    'connectedness': 's',  # square
-    'reach': '^',            # triangle
-    'connectivity': 'o'                  # circle
+        'connectedness': 's',  # square
+        'reach': '^',            # triangle
+        'connectivity': 'o'     # circle
     }
 
     for metric, greedy_color, random_color in zip(metrics, greedy_colors, random_colors):
         marker = marker_styles.get(metric, 'o')  
-        ax1.plot(greedy_df['iteration'].loc[left_plot_range], greedy_df[metric].loc[left_plot_range], marker=marker, color=greedy_color, label=f'{metric}, {labels[0].lower()}',linewidth=1, markersize=5, markevery=25)
-        ax1.plot(random_df['iteration'].loc[left_plot_range], random_df[metric].loc[left_plot_range], '--', marker=marker, color=random_color, label=f'{metric}, {labels[1].lower()}', linewidth=1, markersize=5, markevery=25)
+        ax1.plot(greedy_df['iteration'].loc[plot_range], greedy_df[metric].loc[plot_range], marker=marker, color=greedy_color, label=f'{metric}, {labels[0].lower()}', linewidth=1, markersize=5, markevery=25)
+        ax1.plot(random_df['iteration'].loc[plot_range], random_df[metric].loc[plot_range], '--', marker=marker, color=random_color, label=f'{metric}, {labels[1].lower()}', linewidth=1, markersize=5, markevery=25)
 
-    # Add a text box with a description of the markers on the right side of the left subplot
-    fig.text(x=0.36, y=0.35, s='markers every 25 iterations', alpha=0.5,
-         bbox=dict(facecolor='white', edgecolor='lightgray')) 
-
-    ax1.set_xlabel('k '+entity+' removals')
-    ax1.legend(loc='upper right')
-    ax1.set_ylabel('Network Performance Index, NPI')
-
-    # Plot 'NPI' on the right subplot
-    ax2.plot(greedy_df['iteration'].loc[right_plot_range], greedy_df['NPI'].loc[right_plot_range], color='blue', label='NPI, greedy')
-    ax2.plot(random_df['iteration'].loc[right_plot_range], random_df['NPI'].loc[right_plot_range], '--', color='lightblue', label='NPI, random')
-
-    ax2.set_xlabel('k '+entity+' removals')
-    
-    ax2.legend()
-
-    plt.savefig('saved_plots/iggielgn/centrality/'+entity+'_removals.png', bbox_inches='tight', pad_inches=0.1)
+    ax1.set_xlabel('k '+entity+' removals', fontsize=20)
+    ax1.legend(loc='upper right', fontsize=15)
+    ax1.set_ylabel('Network Performance Index, NPI', fontsize=20)
+    ax1.tick_params(axis='both', which='major', labelsize=15)
 
 
-    # Show the figure
+
+    # Add a text box with a description of the markers
+    fig1.text(x=0.675, y=0.35, s='markers every 25 iterations', alpha=0.5,
+              bbox=dict(facecolor='white', edgecolor='lightgray'), fontsize=15) 
+
+
     plt.tight_layout()
+    plt.grid(True, alpha=0.2)
+    plt.savefig('saved_plots/iggielgn/centrality/'+entity+'_removals_subindices.png', bbox_inches='tight', pad_inches=0.1)
+    plt.show()
+
+    # Create figure for the second plot
+    fig2, ax2 = plt.subplots(figsize=(10, 6))
+
+    # Define the range of data to be displayed in the plot
+    plot_range = slice(0, 100)  # Display first 100 iterations
+
+    # Plot 'NPI'
+    ax2.plot(greedy_df['iteration'].loc[plot_range], greedy_df['NPI'].loc[plot_range], color='blue', label='NPI, greedy')
+    ax2.plot(random_df['iteration'].loc[plot_range], random_df['NPI'].loc[plot_range], '--', color='lightblue', label='NPI, random')
+
+    ax2.set_xlabel('k '+entity+' removals', fontsize=20)
+    ax2.legend(fontsize=15)
+    ax2.tick_params(axis='both', which='major', labelsize=15)
+
+
+    plt.tight_layout()
+    plt.grid(True, alpha=0.2)
+    plt.savefig('saved_plots/iggielgn/centrality/'+entity+'_removals_index.png', bbox_inches='tight', pad_inches=0.1)
+    plt.show()
 
 
 def results_summary(df_, metric='', abs_or_pct='abs'):

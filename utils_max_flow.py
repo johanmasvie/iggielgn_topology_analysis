@@ -304,7 +304,7 @@ def plot_heuristic_comparison_biplot(df_list):
             continue
         
         # Check if heuristic is in marker_styles, if not, assign a default marker
-        marker = marker_styles.get(heuristic, '0')  
+        marker = marker_styles.get(heuristic, 'o')  
         
         # Update heuristic label for legend if needed
         if heuristic == 'max flow edge flows': 
@@ -327,6 +327,7 @@ def plot_heuristic_comparison_biplot(df_list):
     ax.legend()
 
     # plt.title('N-k max flow, '+ remove + ' removals', x=0.2, ha='center', fontsize=12) 
+    plt.grid(True, alpha=0.2)
     plt.tight_layout()
     plt.show()
     return fig
@@ -384,10 +385,38 @@ def results_summary(df_, metric='', abs_or_pct='abs'):
     print(f"Percentage network damage: {round(((initial_max_flow - final_max_flow) / initial_max_flow) * 100, 1)}%")
     print(f"Mean damage per entity removal: {round(df.head(250)['diff'].mean(), 2)}")
     print(f"Variation in damage per entity removal: {round(df.head(250)['diff'].std(), 2)}")
+
+    # Calculate the area under the curve
+    auc = np.trapz(df[metric], x=df.index)
+    print(f"Area under the curve: {round(auc, 2)}")
     if not pd.isna(zero_metric_iteration):
         print(f"The metric reaches 0 at iteration {zero_metric_iteration}.")
 
 
+def average_dfs(df1, df2, metrics_to_average=['max_flow_value', 'capacity_robustness_max_flow']):
+    # Make sure both DataFrames have the same number of rows
+    min_rows = min(len(df1), len(df2))
+    
+    # Initialize a new DataFrame to store the averaged values
+    averaged_df = pd.DataFrame(columns=df1.columns)
+    
+    # Copy 'removed_entity' column from one of the DataFrames
+    averaged_df['removed_entity'] = df1['removed_entity']
+    averaged_df['heuristic'] = df1['heuristic']
+    
+    # Iterate over the metrics to average
+    for metric in metrics_to_average:
+        # Average the values from both DataFrames up to the minimum number of rows
+        averaged_values = (df1[metric].iloc[:min_rows] + df2[metric].iloc[:min_rows]) / 2
+        averaged_df[metric] = averaged_values
+    
+    # For any remaining rows in the longer DataFrame, copy the values
+    if len(df1) > min_rows:
+        averaged_df.iloc[min_rows:, :] = df1.iloc[min_rows:, :]
+    elif len(df2) > min_rows:
+        averaged_df.iloc[min_rows:, :] = df2.iloc[min_rows:, :]
+    
+    return averaged_df
     
 
 
