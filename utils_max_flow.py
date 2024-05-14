@@ -288,26 +288,46 @@ def plot_heuristic_comparison_biplot(df_list):
     series_name = df_list[0].columns[:2].tolist()[1]  
     shortest_df_length = min(len(df) for df in df_list) + 50
 
+    marker_styles = {
+    'max flow edge flows': 's',  # square
+    'load rate': '^',            # triangle
+    'wfcr': 'o'                  # circle
+    }
+
     for df in df_list:
         heuristic = str(df.iloc[1]['heuristic']).replace('_', ' ')
-        if heuristic == 'max flow edge count':
-            heuristic = 'Edge count'
-        if heuristic =='max flow edge flows':
-            heuristic = 'FC'
-        if heuristic == 'load rate':
-            heuristic = 'FCR'
-        if heuristic == 'wfcr':
-            heuristic = 'WFCR'
-        ax.plot(df.index[:shortest_df_length], df[series_name][:shortest_df_length], label=f'{heuristic}')
+        heuristic_label = heuristic  # For labeling in legend
+
+        if heuristic == 'random':
+            ax.plot(df.index[:shortest_df_length], df[series_name][:shortest_df_length], '--',
+                label=heuristic_label, linewidth=1)  
+            continue
+        
+        # Check if heuristic is in marker_styles, if not, assign a default marker
+        marker = marker_styles.get(heuristic, 'o')  
+        
+        # Update heuristic label for legend if needed
+        if heuristic == 'max flow edge flows': 
+            heuristic_label = '$I^{FC}$'
+        elif heuristic == 'load rate': 
+            heuristic_label = '$I^{FCR}$'
+        elif heuristic == 'wfcr': 
+            heuristic_label = '$I^{WFCR}$'
+        
+        ax.plot(df.index[:shortest_df_length], df[series_name][:shortest_df_length], 
+                label=heuristic_label, marker=marker, linewidth=1, markersize=5, markevery=5)  
+
+    # Add a text box with a description of the markers on the right side of the left subplot
+    fig.text(x=0.4, y=0.35, s='markers every\n5 iterations', alpha=0.5,
+         bbox=dict(facecolor='white', edgecolor='lightgray')) 
 
     remove = 'edge' if isinstance(df_list[0].iloc[1]['removed_entity'], set) else 'node'
-
-
     ax.set_xlabel('k '+remove+' removals')
-    ax.set_ylabel(series_name.replace('_', ' ')) 
+    ax.set_ylabel('Flow Capacity Robustness, FCR') 
     ax.legend()
 
     # plt.title('N-k max flow, '+ remove + ' removals', x=0.2, ha='center', fontsize=12) 
+    plt.grid(True, alpha=0.2)
     plt.tight_layout()
     plt.show()
     return fig
@@ -365,10 +385,38 @@ def results_summary(df_, metric='', abs_or_pct='abs'):
     print(f"Percentage network damage: {round(((initial_max_flow - final_max_flow) / initial_max_flow) * 100, 1)}%")
     print(f"Mean damage per entity removal: {round(df.head(250)['diff'].mean(), 2)}")
     print(f"Variation in damage per entity removal: {round(df.head(250)['diff'].std(), 2)}")
+
+    # Calculate the area under the curve
+    auc = np.trapz(df[metric], x=df.index)
+    print(f"Area under the curve: {round(auc, 2)}")
     if not pd.isna(zero_metric_iteration):
         print(f"The metric reaches 0 at iteration {zero_metric_iteration}.")
 
 
+def average_dfs(df1, df2, metrics_to_average=['max_flow_value', 'capacity_robustness_max_flow']):
+    # Make sure both DataFrames have the same number of rows
+    min_rows = min(len(df1), len(df2))
+    
+    # Initialize a new DataFrame to store the averaged values
+    averaged_df = pd.DataFrame(columns=df1.columns)
+    
+    # Copy 'removed_entity' column from one of the DataFrames
+    averaged_df['removed_entity'] = df1['removed_entity']
+    averaged_df['heuristic'] = df1['heuristic']
+    
+    # Iterate over the metrics to average
+    for metric in metrics_to_average:
+        # Average the values from both DataFrames up to the minimum number of rows
+        averaged_values = (df1[metric].iloc[:min_rows] + df2[metric].iloc[:min_rows]) / 2
+        averaged_df[metric] = averaged_values
+    
+    # For any remaining rows in the longer DataFrame, copy the values
+    if len(df1) > min_rows:
+        averaged_df.iloc[min_rows:, :] = df1.iloc[min_rows:, :]
+    elif len(df2) > min_rows:
+        averaged_df.iloc[min_rows:, :] = df2.iloc[min_rows:, :]
+    
+    return averaged_df
     
 
 
