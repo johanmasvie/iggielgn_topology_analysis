@@ -2,4 +2,5 @@
 /.vscode
 .DS_Store
 /sandbox.ipynb
+/specific_nodes_edges.ipynb
 /config.py
