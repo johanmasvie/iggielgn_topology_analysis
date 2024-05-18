@@ -19,61 +19,55 @@ with open('graph_objects/G_simple_directed_iggielgn.pickle', 'rb') as f:
 NUM_NODES_IN_G_SIMPLE_DIRECTED = G_simple_directed.number_of_nodes()
 NUM_EDGES_IN_G_SIMPLE_DIRECTED = G_simple_directed.number_of_edges()
 
-def plot_transform_analysis(df1_pair, df2_pair, index):
-    fig, axs = plt.subplots(1, 2, figsize=SUB_PLOTS_FIGSIZE)
 
-    title = 'Centrality based N-k analysis employing greedy entity removal order resulting from max flow analysis'
-    if 'max_flow_value'in df1_pair[0].columns.values:
-        title = 'Max flow based N-k analysis employing greedy entity removal order resulting from centrality analysis'
+import matplotlib.pyplot as plt
+def plot_transform_comparison(df1, df2, df3, metric):
+    """
+    Plots the specified performance metric against the number of iterations for three dataframes.
+    
+    Parameters:
+    df1 (pd.DataFrame): Tranformed data
+    df2 (pd.DataFrame): Original data, greedy
+    df3 (pd.DataFrame): Original data, random
+    metric (str): The column name of the performance metric to plot.
+    
+    Returns:
+    None
+    """
+    
+    # Determine the minimum length of the dataframes
+    min_length = min(len(df1), len(df2), len(df3))
+    
+    # Truncate dataframes to the minimum length
+    df1_truncated = df1.head(min_length)
+    df2_truncated = df2.head(min_length)
+    df3_truncated = df3.head(min_length)
+    
+    # Plot the performance metric against the number of iterations
+    fig = plt.figure(figsize=(10, 6))
+    
+    plt.plot(df1_truncated.index, df1_truncated[metric], label='transformed data', color='blue')
+    plt.plot(df2_truncated.index, df2_truncated[metric], label='original data, greedy', color='gray')
+    plt.plot(df3_truncated.index, df3_truncated[metric], label='original data, random', color='gray', linestyle='--')
+    
+    metric_txt = 'NPI' if metric == 'NPI' else 'FCR'
+    plt.ylabel(metric_txt, fontsize=15)
+    
+   
+    remove_txt = 'edge' if len(df2_truncated.iloc[1]['removed_entity']) == 2 else 'node'
+    plt.xlabel('k '+remove_txt+' removals', fontsize=15)
 
-    for ax, df1, df2 in zip(axs, df1_pair, df2_pair):
-        min_length = min(len(df1), len(df2))
-        df1 = df1.iloc[:min_length]
-        df2 = df2.iloc[:min_length]
+    # Set size of y and x-axis ticks to 12
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
 
-        entity_type = 'edge' if isinstance(df2.iloc[-1]['removed_entity'], set) else 'node'
-
-
-        ax.set_title(f'{entity_type} removal', loc=SUB_LOC, fontsize=SUB_TITLE_FONTSIZE)
-        ax.plot(df1.index, df1[index], label='transformed', color='blue')
-        ax.plot(df2.index, df2[index], label='original', color='gray', alpha=0.4)
-
-        # Add vertical line at intersection points
-        intersection_points = np.argwhere(np.diff(np.sign(df1[index] - df2[index]))).flatten()
-        for point in intersection_points:
-            if point != 0:
-                ax.axvline(x=point, color='r', linestyle='--', alpha=0.4)
-                ax.text(point + 2, 0.9, 'k=' + str(point), rotation=0, alpha=0.4, color='r', verticalalignment='top')
+    # Set size of x and y-axis labels to 15
+    plt.ylabel(metric_txt, fontsize=15)
+    
+    if remove_txt == 'node':
+        plt.legend(fontsize=12)
         
-        # Calculate absolute difference between the two curves
-        absolute_diff = np.abs(df1[index] - df2[index])[:min_length]  # Limiting to the length of the shorter dataframe
-        ax.fill_between(df1.index[:min_length], 0, absolute_diff, color='grey', alpha=0.1)
-        ax.set_ylabel(index)
-        ax.set_xlabel('k '+entity_type+' removals')
-
-    # Creating a separate legend for the intersection and absolute difference
-    intersection_legend = plt.Line2D([0], [0], color='r', linestyle='--', alpha=0.4, label='intersection')
-    abs_diff_legend = Patch(facecolor='grey', edgecolor='black', alpha=0.1, label='absolute diff')
-    fig.legend(handles=[intersection_legend, abs_diff_legend], loc='upper right', bbox_to_anchor=(0.8, 1.0))
-
-    # Combine handles and labels for plot lines
-    handles1, labels1 = axs[0].get_legend_handles_labels()
-    handles2, labels2 = axs[1].get_legend_handles_labels()
-
-    # Combine handles and labels, filtering out duplicates
-    handles = handles1 + handles2
-    labels = labels1 + labels2
-    unique_labels = []
-    unique_handles = []
-
-    for handle, label in zip(handles, labels):
-        if label not in unique_labels:
-            unique_labels.append(label)
-            unique_handles.append(handle)
-
-    fig.legend(unique_handles, unique_labels, loc='upper right', bbox_to_anchor=(0.9, 1.0))
-
-    plt.suptitle(title, x=SUP_TITLE_X_PLOT_TRANSLATED_ANALYSIS, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
+    plt.grid(True, alpha=0.2)
     plt.show()
     return fig
 
