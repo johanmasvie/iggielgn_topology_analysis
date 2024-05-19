@@ -97,7 +97,7 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
             if greedy_max_flow_lst is None:
                 raise ValueError("Please provide a list of greedy max flows for the 'max_flow' heuristic.")
             try:
-                target = greedy_max_flow_lst[i]
+                target = greedy_max_flow_lst[i-1] # Since the first iteration i == 0 is assigned None
             except IndexError:
                 return results_df
             
