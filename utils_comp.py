@@ -20,7 +20,7 @@ NUM_NODES_IN_G_SIMPLE_DIRECTED = G_simple_directed.number_of_nodes()
 NUM_EDGES_IN_G_SIMPLE_DIRECTED = G_simple_directed.number_of_edges()
 
 
-import matplotlib.pyplot as plt
+import numpy as np
 def plot_transform_comparison(df1, df2, df3, metric):
     """
     Plots the specified performance metric against the number of iterations for three dataframes.
@@ -42,6 +42,21 @@ def plot_transform_comparison(df1, df2, df3, metric):
     df1_truncated = df1.head(min_length)
     df2_truncated = df2.head(min_length)
     df3_truncated = df3.head(min_length)
+
+    # Calculate the differences for shading and area calculation
+    diff1_vs_2 = abs(df1_truncated[metric] - df2_truncated[metric])
+    diff1_vs_3 = abs(df1_truncated[metric] - df3_truncated[metric])
+    
+    # Calculate the areas of the shaded regions
+    area1_vs_2 = round(np.trapz(diff1_vs_2.clip(lower=0), dx=1),1)
+    area1_vs_3 = round(np.trapz(diff1_vs_3.clip(lower=0), dx=1),1)
+
+    # Calculate positions for annotations
+    mean_y1_vs_2 = (df1_truncated[metric] + df2_truncated[metric]) / 2
+    mean_y1_vs_3 = (df1_truncated[metric] + df3_truncated[metric]) / 2
+    
+    idx1_vs_2 = np.argmax(diff1_vs_2)
+    idx1_vs_3 = np.argmax(diff1_vs_3)
     
     # Plot the performance metric against the number of iterations
     fig = plt.figure(figsize=(10, 6))
@@ -50,12 +65,32 @@ def plot_transform_comparison(df1, df2, df3, metric):
     plt.plot(df2_truncated.index, df2_truncated[metric], label='original data, greedy', color='gray')
     plt.plot(df3_truncated.index, df3_truncated[metric], label='original data, random', color='gray', linestyle='--')
     
+    # Add shading between df1 and df2
+    plt.fill_between(df1_truncated.index, df1_truncated[metric], df2_truncated[metric], 
+                     # where=(df1_truncated[metric] > df2_truncated[metric]), 
+                     interpolate=True, color='lightgray', alpha=0.3)
+    
+    # Add shading between df1 and df3
+    plt.fill_between(df1_truncated.index, df1_truncated[metric], df3_truncated[metric], 
+                     # where=(df3_truncated[metric] > df1_truncated[metric]), 
+                     interpolate=True, color='lightblue', alpha=0.1, linestyle='--')
+    
+    # Annotate the areas of the shaded regions
+    plt.annotate(f'Area: {area1_vs_2}', 
+                xy=(idx1_vs_2, mean_y1_vs_2.iloc[idx1_vs_2]), 
+                xytext=(idx1_vs_2, mean_y1_vs_2.iloc[idx1_vs_2] - 0.1),
+                fontsize=12, backgroundcolor='white', alpha=0.5)
+    
+    plt.annotate(f'Area: {area1_vs_3}', 
+                xy=(idx1_vs_3, mean_y1_vs_3.iloc[idx1_vs_3]), 
+                xytext=(idx1_vs_3, mean_y1_vs_3.iloc[idx1_vs_3] - 0.05),
+                fontsize=12, backgroundcolor='white', alpha=0.5)
+    
     metric_txt = 'NPI' if metric == 'NPI' else 'FCR'
     plt.ylabel(metric_txt, fontsize=15)
-    
    
     remove_txt = 'edge' if len(df2_truncated.iloc[1]['removed_entity']) == 2 else 'node'
-    plt.xlabel('k '+remove_txt+' removals', fontsize=15)
+    plt.xlabel('k ' + remove_txt + ' removals', fontsize=15)
 
     # Set size of y and x-axis ticks to 12
     plt.xticks(fontsize=12)
@@ -65,7 +100,7 @@ def plot_transform_comparison(df1, df2, df3, metric):
     plt.ylabel(metric_txt, fontsize=15)
     
     if remove_txt == 'node':
-        plt.legend(fontsize=12)
+        plt.legend(fontsize=12, loc='upper right')
         
     plt.grid(True, alpha=0.2)
     plt.show()
@@ -265,11 +300,16 @@ def common_entities(df1_, df2_):
 
 def correct_edges(edges_lst):
     new_edges_lst = []
+    seen = set()
     for e in edges_lst:
         if e in G_simple_directed.edges():
-            new_edges_lst.append(e)
+            if e not in seen:
+                new_edges_lst.append(e)
+                seen.add(e)
         else:
             reversed_e = (e[1], e[0])
             if reversed_e in G_simple_directed.edges():
-                new_edges_lst.append(reversed_e)
-    return list(set(new_edges_lst))
+                if reversed_e not in seen:
+                    new_edges_lst.append(reversed_e)
+                    seen.add(reversed_e)
+    return new_edges_lst

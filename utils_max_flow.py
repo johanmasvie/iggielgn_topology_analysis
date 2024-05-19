@@ -244,7 +244,7 @@ def flow_capacity_robustness(G_, heuristic='random', remove='node', k_removals=2
 
         elif heuristic == 'greedy_centrality':
             try:
-                target = greedy_centrality_lst[k]
+                target = greedy_centrality_lst[k-1] # k-1 since k starts at 1
             except IndexError:
                 return results_df
             

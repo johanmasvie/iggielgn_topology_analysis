@@ -109,9 +109,9 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
                         continue
     
             G.remove_edge(*target) if isinstance(target, tuple) else G.remove_node(target)
-            
+            target = target if remove == 'node' else set(target)  
             composite, robustness, reach, connectivity, _ = NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
-            results_df.loc[i] = [i, set(target), composite, robustness, reach, connectivity, 'max_flow']
+            results_df.loc[i] = [i, target, composite, robustness, reach, connectivity, 'max_flow']
             continue
 
             
