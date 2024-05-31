@@ -131,12 +131,12 @@ def plot_direct_comparison(df1, df2, df3, df4):
 
     
     # Plot NPI data
-    plt.plot(df1.index, df1['NPI'], label='NPI, greedy', linestyle='-', color='blue')
-    plt.plot(df2.index, df2['NPI'], label='NPI, random', linestyle='--', color='lightblue')
+    plt.plot(df1.index, df1['NPI'], label=r'$\varphi^{\text{NCPI}}_{G_k}, \text{greedy}$', linestyle='-', color='blue')
+    plt.plot(df2.index, df2['NPI'], label=r'$\varphi^{\text{NCPI}}_{G_k}, \text{random}$', linestyle='--', color='lightblue')
     
     # Plot FCR data
-    plt.plot(df3.index, df3['capacity_robustness_max_flow'], label='FCR, greedy', linestyle='-', color='coral')
-    plt.plot(df4.index, df4['capacity_robustness_max_flow'], label='FCR, random', linestyle='--', color='lightcoral')
+    plt.plot(df3.index, df3['capacity_robustness_max_flow'], label=r'$\varphi^{\text{NFCR}}_{G_k}, \text{greedy}$', linestyle='-', color='coral')
+    plt.plot(df4.index, df4['capacity_robustness_max_flow'], label=r'$\varphi^{\text{NFCR}}_{G_k}, \text{random}$', linestyle='--', color='lightcoral')
     
     # Adding labels and title
     plt.xlabel('k ' + entity_type + ' removals', fontsize=14)

@@ -276,7 +276,7 @@ def plot_comparison(greedy_df, random_df, entity='node'):
 
     ax1.set_xlabel('k '+entity+' removals', fontsize=20)
     ax1.legend(loc='upper right', fontsize=15)
-    ax1.set_ylabel('Network Performance Index, NPI', fontsize=20)
+    ax1.set_ylabel('Network Centrality Performance Index, NCPI', fontsize=16)
     ax1.tick_params(axis='both', which='major', labelsize=15)
 
 
@@ -298,8 +298,9 @@ def plot_comparison(greedy_df, random_df, entity='node'):
     plot_range = slice(0, 100)  # Display first 100 iterations
 
     # Plot 'NPI'
-    ax2.plot(greedy_df['iteration'].loc[plot_range], greedy_df['NPI'].loc[plot_range], color='blue', label='NPI, greedy')
-    ax2.plot(random_df['iteration'].loc[plot_range], random_df['NPI'].loc[plot_range], '--', color='lightblue', label='NPI, random')
+    ax2.plot(greedy_df['iteration'].loc[plot_range], greedy_df['NPI'].loc[plot_range], color='blue', label=r'$\varphi^{\text{NCPI}}_{G_k}, \text{greedy}$')
+    ax2.plot(random_df['iteration'].loc[plot_range], random_df['NPI'].loc[plot_range], '--', color='lightblue', label=r'$\varphi^{\text{NCPI}}_{G_k}, \text{random}$')
+
 
     ax2.set_xlabel('k '+entity+' removals', fontsize=20)
     ax2.legend(fontsize=15)
