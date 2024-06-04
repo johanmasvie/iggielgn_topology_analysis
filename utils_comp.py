@@ -19,184 +19,183 @@ with open('graph_objects/G_simple_directed_iggielgn.pickle', 'rb') as f:
 NUM_NODES_IN_G_SIMPLE_DIRECTED = G_simple_directed.number_of_nodes()
 NUM_EDGES_IN_G_SIMPLE_DIRECTED = G_simple_directed.number_of_edges()
 
-def plot_transform_analysis(df1_pair, df2_pair, index):
-    fig, axs = plt.subplots(1, 2, figsize=SUB_PLOTS_FIGSIZE)
 
-    title = 'Centrality based N-k analysis employing greedy entity removal order resulting from max flow analysis'
-    if 'max_flow_value'in df1_pair[0].columns.values:
-        title = 'Max flow based N-k analysis employing greedy entity removal order resulting from centrality analysis'
+import numpy as np
+def plot_transform_comparison(df1, df2, df3, metric):
+    """
+    Plots the specified performance metric against the number of iterations for three dataframes.
+    
+    Parameters:
+    df1 (pd.DataFrame): Tranformed data
+    df2 (pd.DataFrame): Original data, greedy
+    df3 (pd.DataFrame): Original data, random
+    metric (str): The column name of the performance metric to plot.
+    
+    Returns:
+    None
+    """
+    
+    # Determine the minimum length of the dataframes
+    min_length = min(len(df1), len(df2), len(df3))
+    
+    # Truncate dataframes to the minimum length
+    df1_truncated = df1.head(min_length)
+    df2_truncated = df2.head(min_length)
+    df3_truncated = df3.head(min_length)
 
-    for ax, df1, df2 in zip(axs, df1_pair, df2_pair):
-        min_length = min(len(df1), len(df2))
-        df1 = df1.iloc[:min_length]
-        df2 = df2.iloc[:min_length]
+    # Calculate the differences for shading and area calculation
+    diff1_vs_2 = abs(df1_truncated[metric] - df2_truncated[metric])
+    diff1_vs_3 = abs(df1_truncated[metric] - df3_truncated[metric])
+    
+    # Calculate the areas of the shaded regions
+    area1_vs_2 = round(np.trapz(diff1_vs_2.clip(lower=0), dx=1),1)
+    area1_vs_3 = round(np.trapz(diff1_vs_3.clip(lower=0), dx=1),1)
 
-        entity_type = 'edge' if isinstance(df2.iloc[-1]['removed_entity'], set) else 'node'
+    # Calculate positions for annotations
+    mean_y1_vs_2 = (df1_truncated[metric] + df2_truncated[metric]) / 2
+    mean_y1_vs_3 = (df1_truncated[metric] + df3_truncated[metric]) / 2
+    
+    idx1_vs_2 = np.argmax(diff1_vs_2)
+    idx1_vs_3 = np.argmax(diff1_vs_3)
+    
+    # Plot the performance metric against the number of iterations
+    fig = plt.figure(figsize=(10, 6))
+    
+    plt.plot(df1_truncated.index, df1_truncated[metric], label='transformed data', color='blue')
+    plt.plot(df2_truncated.index, df2_truncated[metric], label='original data, greedy', color='gray')
+    plt.plot(df3_truncated.index, df3_truncated[metric], label='original data, random', color='gray', linestyle='--')
+    
+    # Add shading between df1 and df2
+    plt.fill_between(df1_truncated.index, df1_truncated[metric], df2_truncated[metric], 
+                     # where=(df1_truncated[metric] > df2_truncated[metric]), 
+                     interpolate=True, color='lightgray', alpha=0.3)
+    
+    # Add shading between df1 and df3
+    plt.fill_between(df1_truncated.index, df1_truncated[metric], df3_truncated[metric], 
+                     # where=(df3_truncated[metric] > df1_truncated[metric]), 
+                     interpolate=True, color='lightblue', alpha=0.1, linestyle='--')
+    
+    # Annotate the areas of the shaded regions
+    plt.annotate(f'Area: {area1_vs_2}', 
+                xy=(idx1_vs_2, mean_y1_vs_2.iloc[idx1_vs_2]), 
+                xytext=(idx1_vs_2, mean_y1_vs_2.iloc[idx1_vs_2] - 0.1),
+                fontsize=12, backgroundcolor='white', alpha=0.5)
+    
+    plt.annotate(f'Area: {area1_vs_3}', 
+                xy=(idx1_vs_3, mean_y1_vs_3.iloc[idx1_vs_3]), 
+                xytext=(idx1_vs_3, mean_y1_vs_3.iloc[idx1_vs_3] - 0.05),
+                fontsize=12, backgroundcolor='white', alpha=0.5)
+    
+    metric_txt = 'NPI' if metric == 'NPI' else 'FCR'
+    plt.ylabel(metric_txt, fontsize=15)
+   
+    remove_txt = 'edge' if len(df2_truncated.iloc[1]['removed_entity']) == 2 else 'node'
+    plt.xlabel('k ' + remove_txt + ' removals', fontsize=15)
 
+    # Set size of y and x-axis ticks to 12
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
 
-        ax.set_title(f'{entity_type} removal', loc=SUB_LOC, fontsize=SUB_TITLE_FONTSIZE)
-        ax.plot(df1.index, df1[index], label='transformed', color='blue')
-        ax.plot(df2.index, df2[index], label='original', color='gray', alpha=0.4)
-
-        # Add vertical line at intersection points
-        intersection_points = np.argwhere(np.diff(np.sign(df1[index] - df2[index]))).flatten()
-        for point in intersection_points:
-            if point != 0:
-                ax.axvline(x=point, color='r', linestyle='--', alpha=0.4)
-                ax.text(point + 2, 0.9, 'k=' + str(point), rotation=0, alpha=0.4, color='r', verticalalignment='top')
+    # Set size of x and y-axis labels to 15
+    plt.ylabel(metric_txt, fontsize=15)
+    
+    if remove_txt == 'node':
+        plt.legend(fontsize=12, loc='upper right')
         
-        # Calculate absolute difference between the two curves
-        absolute_diff = np.abs(df1[index] - df2[index])[:min_length]  # Limiting to the length of the shorter dataframe
-        ax.fill_between(df1.index[:min_length], 0, absolute_diff, color='grey', alpha=0.1)
-        ax.set_ylabel(index)
-        ax.set_xlabel('k '+entity_type+' removals')
-
-    # Creating a separate legend for the intersection and absolute difference
-    intersection_legend = plt.Line2D([0], [0], color='r', linestyle='--', alpha=0.4, label='intersection')
-    abs_diff_legend = Patch(facecolor='grey', edgecolor='black', alpha=0.1, label='absolute diff')
-    fig.legend(handles=[intersection_legend, abs_diff_legend], loc='upper right', bbox_to_anchor=(0.8, 1.0))
-
-    # Combine handles and labels for plot lines
-    handles1, labels1 = axs[0].get_legend_handles_labels()
-    handles2, labels2 = axs[1].get_legend_handles_labels()
-
-    # Combine handles and labels, filtering out duplicates
-    handles = handles1 + handles2
-    labels = labels1 + labels2
-    unique_labels = []
-    unique_handles = []
-
-    for handle, label in zip(handles, labels):
-        if label not in unique_labels:
-            unique_labels.append(label)
-            unique_handles.append(handle)
-
-    fig.legend(unique_handles, unique_labels, loc='upper right', bbox_to_anchor=(0.9, 1.0))
-
-    plt.suptitle(title, x=SUP_TITLE_X_PLOT_TRANSLATED_ANALYSIS, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
+    plt.grid(True, alpha=0.2)
     plt.show()
     return fig
 
 
-def plot_max_flow_and_centrality_comparison(df1_pair, df2_pair, index1, index2):
-    if len(df1_pair) == 1:
-        fig, ax = plt.subplots(1, 1, figsize=SUB_PLOTS_FIGSIZE)
-    else:
-        fig, axs = plt.subplots(1, 2, figsize=SUB_PLOTS_FIGSIZE)
+def plot_direct_comparison(df1, df2, df3, df4):
+    """
+    Plots the performance metrics from four dataframes.
+    
+    Parameters:
+    df1, df2: DataFrames containing NPI metrics, random and greedy 
+    df3, df4: DataFrames containing FCR metrics, random and greedy
+    
+    Each DataFrame is expected to have the performance metric as a column named 'NPI' or 'FCR'.
+    The index of the DataFrame is used as the x-axis (iterations).
+    """
+    
+    # Create the plot
+    plt.figure(figsize=(10, 5))
 
-    entity_type = 'node' if ',' not in str(df2_pair[0].iloc[-1]['removed_entity']) else 'edge'
+    # Ensure dataframes have the same length
+    min_length = min(len(df1), len(df2), len(df3), len(df4))
+    df1, df2, df3, df4 = df1.iloc[:min_length], df2.iloc[:min_length], df3.iloc[:min_length], df4.iloc[:min_length]
 
-    if len(df1_pair) == 1:
-        df1 = df1_pair[0]
-        df2 = df2_pair[0]
-        min_length = min(len(df1), len(df2))
-        df1 = df1.iloc[:min_length]
-        df2 = df2.iloc[:min_length]
+    # Determine entity type based on the last row of df1
+    entity_type = 'edge' if isinstance(df1.iloc[-1]['removed_entity'], set) else 'node'
 
-        heuristic = 'random' if 'random' in str(df1.iloc[-1]['heuristic']) else 'greedy'
+    
+    # Plot NPI data
+    plt.plot(df1.index, df1['NPI'], label=r'$\varphi^{\text{NCPI}}_{G_k}, \text{greedy}$', linestyle='-', color='blue')
+    plt.plot(df2.index, df2['NPI'], label=r'$\varphi^{\text{NCPI}}_{G_k}, \text{random}$', linestyle='--', color='lightblue')
+    
+    # Plot FCR data
+    plt.plot(df3.index, df3['capacity_robustness_max_flow'], label=r'$\varphi^{\text{NFCR}}_{G_k}, \text{greedy}$', linestyle='-', color='coral')
+    plt.plot(df4.index, df4['capacity_robustness_max_flow'], label=r'$\varphi^{\text{NFCR}}_{G_k}, \text{random}$', linestyle='--', color='lightcoral')
+    
+    # Adding labels and title
+    plt.xlabel('k ' + entity_type + ' removals', fontsize=14)
+    plt.legend(fontsize=12)
+    plt.grid(True, alpha=0.2)
+    
+    plt.savefig('saved_plots/iggielgn/hybrid/comparison/direct_'+entity_type+'_comparison.png', bbox_inches='tight', pad_inches=0)
+    
+    print_AUC_ROC_info(df1)
+    print_AUC_ROC_info(df2)
+    print_AUC_ROC_info(df3)
+    print_AUC_ROC_info(df4)
 
-        ax.plot(df1.index, df1[index1], label=f'{'NPI'}')
-        ax.plot(df2.index, df2[index2], label=f'{'Flow Capacity Robustness'}')
+    # Increase the size of ticks
+    plt.tick_params(axis='both', which='major', labelsize=12)
+    plt.tick_params(axis='both', which='minor', labelsize=10)
 
-        # Add vertical line at intersection points
-        intersection_points = np.argwhere(np.diff(np.sign(df1[index1] - df2[index2]))).flatten()
-        for i, point in enumerate(intersection_points):
-            if point != 0:
-                ax.axvline(x=point, color='g', linestyle='--', alpha=0.3)
-                text_y = 0.9 - 0.1 * i  # Adjust vertical position based on index
-                ax.text(point + 0.1, text_y, 'k='+str(point), rotation=-90, alpha=0.3, color='g', verticalalignment='top')
-
-        
-        # Calculate absolute difference between the two curves
-        ax.fill_between(df1.index, 0, np.abs(df1[index1] - df2[index2]), color='grey', alpha=0.1)
-        ax.set_xlabel('k '+entity_type+' removals')
-      
-        # Add legend to the subplots
-        handles1, labels1 = ax.get_legend_handles_labels()
-        handles2 = [plt.Line2D([0], [0], color='g', linestyle='--', alpha=0.4),
-                    Patch(facecolor='grey', edgecolor='black', alpha=0.1)]
-        labels2 = ['absolute diff']
-        
-
-        handles = handles1 + handles2
-        labels = labels1 + labels2
-        ax.legend(handles, labels, loc='upper right')  # Adjust legend position
-
-    else:
-        for ax, df1, df2 in zip(axs, df1_pair, df2_pair):
-            min_length = min(len(df1), len(df2))
-            df1 = df1.iloc[:min_length]
-            df2 = df2.iloc[:min_length]
-
-            heuristic = 'random' if 'random' in str(df1.iloc[-1]['heuristic']) else 'greedy'
-
-            ax.set_title(f'{heuristic} removal heuristic', loc=SUB_LOC, fontsize=SUB_TITLE_FONTSIZE)
-            ax.plot(df1.index, df1[index1], label=f'{'NPI'}')
-            ax.plot(df2.index, df2[index2], label=f'{'Flow Capacity Robustness'}')
-
-            # Add vertical line at intersection points
-            intersection_points = np.argwhere(np.diff(np.sign(df1[index1] - df2[index2]))).flatten()
-            for point in intersection_points:
-                if point != 0:
-                    ax.axvline(x=point, color='r', linestyle='--', alpha=0.4)
-                    ax.text(point + 2, 0.9, 'k=' + str(point), rotation=0, alpha=0.4, color='r', verticalalignment='top')
-            
-            # Calculate absolute difference between the two curves
-            ax.fill_between(df1.index, 0, np.abs(df1[index1] - df2[index2]), color='grey', alpha=0.1)
-            ax.set_xlabel('k '+entity_type+' removals')
-
-        # Add legend to the subplots
-        handles, labels = axs[0].get_legend_handles_labels()
-        axs[0].legend(handles, labels, loc='upper right')  # Adjust legend position
-
-    # Adjust legend position
-    plt.subplots_adjust(left=0.15, bottom=0.15, right=0.85, top=0.85, wspace=0.3, hspace=0.3)
-
-    # plt.suptitle('Comparison of max flow and centrality based N-k analyses', x=SUP_TITLE_X, ha=SUP_TITLE_HA, fontsize=SUP_TITLE_FONTSIZE)
     plt.show()
 
-    print_ROC_AUC_info(df1_pair, df2_pair, index1, index2)
+def print_AUC_ROC_info(df):
+    """
+    Calculates and prints AUC and ROC information for a single dataframe.
 
-    return fig
+    Parameters:
+    df (DataFrame): The dataframe containing the data.
+    index (str): The column name of the performance metric in the dataframe.
+    """
+    # Ensure the dataframe has a sufficient length
+    min_length = len(df)
+    df = df.iloc[:min_length]
 
+    index = 'NPI' if 'NPI' in df.columns else 'capacity_robustness_max_flow'
 
+    # Calculate AUC
+    auc = round(np.trapz(df[index], df.index), 2)
 
-def print_ROC_AUC_info(df1_pair, df2_pair, index1, index2):
-    for df1, df2 in zip(df1_pair, df2_pair):
-        min_length = min(len(df1), len(df2))
-        df1 = df1.iloc[:min_length]
-        df2 = df2.iloc[:min_length]
+    # Fit a polynomial of degree 3
+    coeffs = np.polyfit(df.index, df[index], 3)
 
-        # Calculate and print AUC for each series
-        auc1 = round(np.trapz(df1[index1], df1.index), 2)
-        auc2 = round(np.trapz(df2[index2], df2.index), 2)
+    # Calculate curvature for polynomial fit
+    x = sp.Symbol('x')
+    f = coeffs[0]*x**3 + coeffs[1]*x**2 + coeffs[2]*x + coeffs[3]
 
-        # Fit a polynomial of degree 2 (change this to fit a polynomial of a different degree)
-        coeffs1 = np.polyfit(df1.index, df1[index1], 3)
-        coeffs2 = np.polyfit(df2.index, df2[index2], 3)
+    f_prime = sp.diff(f, x)
+    f_double_prime = sp.diff(f_prime, x)
 
-        # Calculate curvature for polynomial fits
-        x = sp.Symbol('x')
-        f1 = coeffs1[0]*x**2 + coeffs1[1]*x**2 + coeffs1[2]*x + coeffs1[3]
-        f2 = coeffs2[0]*x**2 + coeffs2[1]*x**2 + coeffs2[2]*x + coeffs2[3]
+    curvature_formula = sp.Abs(f_double_prime) / (1 + f_prime**2)**(3/2)
 
-        f1_prime, f2_prime = sp.diff(f1, x), sp.diff(f2, x)
-        f1_double_prime, f2_double_prime = sp.diff(f1_prime, x), sp.diff(f2_prime, x)
+    interval_start, interval_end = df.index[0], df.index[min_length-1]
+    interval_points = np.linspace(interval_start, interval_end, 100)
+    curvature_values = [curvature_formula.subs(x, point) for point in interval_points]
 
-        curvature_formula1 = sp.Abs(f1_double_prime) / (1 + f1_prime**2)**(3/2)
-        curvature_formula2 = sp.Abs(f2_double_prime) / (1 + f2_prime**2)**(3/2)
+    # Calculate max curvature and average curvature
+    max_curvature = round(max(curvature_values) * 1000, 5)
+    average_curvature = round(np.mean(curvature_values) * 1000, 5)
 
-        interval_start, interval_end = min(df1.index[0], df2.index[0]), max(df1.index[min_length-1], df2.index[min_length-1])
-        interval_points = np.linspace(interval_start, interval_end, 100)
-        curvature_values1, curvature_values2 = [curvature_formula1.subs(x, point) for point in interval_points], [curvature_formula2.subs(x, point) for point in interval_points]
-
-        # Calculate max curvature and average curvature
-        max_curvature1, max_curvature2 = round(max(curvature_values1) * 1000, 5), round(max(curvature_values2) * 1000, 5)
-        average_curvature1,average_curvature2= round(np.mean(curvature_values1) * 1000, 5), round(np.mean(curvature_values2) * 1000, 5)
-
-        # Print AUC and ROC information side by side
-        print(f"\tAUC for {index1}: {auc1}  \t\t\t\t\t\t\t          AUC for {index2}: {auc2}")
-        print(f"\t{index1}: [max ROC: {max_curvature1}, avg ROC: {average_curvature1}]    \t\t\t\t\t  {index2}: [max ROC: {max_curvature2}, avg ROC: {average_curvature2}]\n")
+    # Print AUC and ROC information
+    print(f"AUC for {index}: {auc}")
+    print(f"{index}: [max ROC: {max_curvature}, avg ROC: {average_curvature}]\n")
 
 
 def common_entities(df1_, df2_):
@@ -299,13 +298,18 @@ def common_entities(df1_, df2_):
 
     return result_df
 
-def fix_centrality_edge(edges_lst):
+def correct_edges(edges_lst):
     new_edges_lst = []
+    seen = set()
     for e in edges_lst:
         if e in G_simple_directed.edges():
-            new_edges_lst.append(e)
-        reversed_e = (e[1], e[0])
-        if reversed_e in G_simple_directed.edges():
-            if reversed_e not in new_edges_lst:
-                new_edges_lst.append(reversed_e)
-    return list(set(new_edges_lst))
+            if e not in seen:
+                new_edges_lst.append(e)
+                seen.add(e)
+        else:
+            reversed_e = (e[1], e[0])
+            if reversed_e in G_simple_directed.edges():
+                if reversed_e not in seen:
+                    new_edges_lst.append(reversed_e)
+                    seen.add(reversed_e)
+    return new_edges_lst

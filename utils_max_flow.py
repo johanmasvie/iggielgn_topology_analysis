@@ -244,7 +244,7 @@ def flow_capacity_robustness(G_, heuristic='random', remove='node', k_removals=2
 
         elif heuristic == 'greedy_centrality':
             try:
-                target = greedy_centrality_lst[k]
+                target = greedy_centrality_lst[k-1] # k-1 since k starts at 1
             except IndexError:
                 return results_df
             
@@ -300,7 +300,7 @@ def plot_heuristic_comparison_biplot(df_list):
 
         if heuristic == 'random':
             ax.plot(df.index[:shortest_df_length], df[series_name][:shortest_df_length], '--',
-                label=heuristic_label, linewidth=1)  
+                label=r'$\varphi^{\text{NFCR}}_{G_k}, \text{random}$', linewidth=1)  
             continue
         
         # Check if heuristic is in marker_styles, if not, assign a default marker
@@ -308,11 +308,11 @@ def plot_heuristic_comparison_biplot(df_list):
         
         # Update heuristic label for legend if needed
         if heuristic == 'max flow edge flows': 
-            heuristic_label = '$I^{FC}$'
+            heuristic_label = r'$\varphi^{\text{NFCR}}_{G_k}, \text{following FC}$'
         elif heuristic == 'load rate': 
-            heuristic_label = '$I^{FCR}$'
+            heuristic_label = r'$\varphi^{\text{NFCR}}_{G_k}, \text{following FCR}$'
         elif heuristic == 'wfcr': 
-            heuristic_label = '$I^{WFCR}$'
+            heuristic_label = r'$\varphi^{\text{NFCR}}_{G_k}, \text{following WFCR}$'
         
         ax.plot(df.index[:shortest_df_length], df[series_name][:shortest_df_length], 
                 label=heuristic_label, marker=marker, linewidth=1, markersize=5, markevery=5)  
@@ -322,8 +322,8 @@ def plot_heuristic_comparison_biplot(df_list):
          bbox=dict(facecolor='white', edgecolor='lightgray')) 
 
     remove = 'edge' if isinstance(df_list[0].iloc[1]['removed_entity'], set) else 'node'
-    ax.set_xlabel('k '+remove+' removals')
-    ax.set_ylabel('Flow Capacity Robustness, FCR') 
+    ax.set_xlabel('k '+remove+' removals', fontsize=14)
+    ax.set_ylabel('Network Flow Capacity Robustness, NFCR', fontsize=12) 
     ax.legend()
 
     # plt.title('N-k max flow, '+ remove + ' removals', x=0.2, ha='center', fontsize=12) 

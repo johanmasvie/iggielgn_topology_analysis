@@ -97,7 +97,7 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
             if greedy_max_flow_lst is None:
                 raise ValueError("Please provide a list of greedy max flows for the 'max_flow' heuristic.")
             try:
-                target = greedy_max_flow_lst[i]
+                target = greedy_max_flow_lst[i-1] # Since the first iteration i == 0 is assigned None
             except IndexError:
                 return results_df
             
@@ -109,9 +109,9 @@ def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500, gr
                         continue
     
             G.remove_edge(*target) if isinstance(target, tuple) else G.remove_node(target)
-            
+            target = target if remove == 'node' else set(target)  
             composite, robustness, reach, connectivity, _ = NPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centrs_G_init)
-            results_df.loc[i] = [i, set(target), composite, robustness, reach, connectivity, 'max_flow']
+            results_df.loc[i] = [i, target, composite, robustness, reach, connectivity, 'max_flow']
             continue
 
             
@@ -276,7 +276,7 @@ def plot_comparison(greedy_df, random_df, entity='node'):
 
     ax1.set_xlabel('k '+entity+' removals', fontsize=20)
     ax1.legend(loc='upper right', fontsize=15)
-    ax1.set_ylabel('Network Performance Index, NPI', fontsize=20)
+    ax1.set_ylabel('Network Centrality Performance Index, NCPI', fontsize=16)
     ax1.tick_params(axis='both', which='major', labelsize=15)
 
 
@@ -298,8 +298,9 @@ def plot_comparison(greedy_df, random_df, entity='node'):
     plot_range = slice(0, 100)  # Display first 100 iterations
 
     # Plot 'NPI'
-    ax2.plot(greedy_df['iteration'].loc[plot_range], greedy_df['NPI'].loc[plot_range], color='blue', label='NPI, greedy')
-    ax2.plot(random_df['iteration'].loc[plot_range], random_df['NPI'].loc[plot_range], '--', color='lightblue', label='NPI, random')
+    ax2.plot(greedy_df['iteration'].loc[plot_range], greedy_df['NPI'].loc[plot_range], color='blue', label=r'$\varphi^{\text{NCPI}}_{G_k}, \text{greedy}$')
+    ax2.plot(random_df['iteration'].loc[plot_range], random_df['NPI'].loc[plot_range], '--', color='lightblue', label=r'$\varphi^{\text{NCPI}}_{G_k}, \text{random}$')
+
 
     ax2.set_xlabel('k '+entity+' removals', fontsize=20)
     ax2.legend(fontsize=15)
