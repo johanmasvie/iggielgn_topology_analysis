@@ -1,6 +1,8 @@
 import pandas as pd
 import json
 import ast
+import matplotlib.pyplot as plt
+from mpl_toolkits.basemap import Basemap
 
 def expand_dict_column(row):
     # Initialize an empty dict to hold the expanded data
@@ -51,3 +53,20 @@ def split_coords (df, col):
     except Exception as e:
         print(f"An error occurred while processing column '{col}': {str(e)}")
     return df
+
+def plot_node(node_ids, graph):
+    fig, ax = plt.subplots(figsize=(16, 16))
+
+    # Use BaseMap to underlay a map of Europe
+    m = Basemap(projection='merc', llcrnrlat=30, urcrnrlat=70, llcrnrlon=-15, urcrnrlon=80, resolution='l')
+    m.drawcoastlines()
+    m.drawcountries()
+    m.fillcontinents(color='lightgray')
+
+    # Plot the node
+    for node_id in node_ids:
+        node = graph.nodes[node_id]
+        x, y = m(node['long'], node['lat'])
+        m.plot(x, y, 'ro', markersize=5)
+
+    plt.show()
