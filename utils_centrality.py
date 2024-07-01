@@ -275,20 +275,24 @@ def plot_comparison(greedy_df, random_df, entity='node'):
         ax1.plot(random_df['iteration'].loc[plot_range], random_df[metric].loc[plot_range], '--', marker=marker, color=random_color, label=f'{metric}, {labels[1].lower()}', linewidth=1, markersize=5, markevery=25)
 
     ax1.set_xlabel('k '+entity+' removals', fontsize=20)
-    ax1.legend(loc='upper right', fontsize=15)
+    if entity == 'node':
+        ax1.legend(loc='upper right', fontsize=15)
     ax1.set_ylabel('Network Centrality Performance Index, NCPI', fontsize=16)
     ax1.tick_params(axis='both', which='major', labelsize=15)
 
 
 
     # Add a text box with a description of the markers
-    fig1.text(x=0.675, y=0.35, s='markers every 25 iterations', alpha=0.5,
-              bbox=dict(facecolor='white', edgecolor='lightgray'), fontsize=15) 
+    if entity == 'node':
+        fig1.text(x=0.675, y=0.35, s='markers every 25 iterations', alpha=0.5,
+                  bbox=dict(facecolor='white', edgecolor='lightgray'), fontsize=15)
 
 
     plt.tight_layout()
     plt.grid(True, alpha=0.2)
     plt.savefig('saved_plots/iggielgn/centrality/'+entity+'_removals_subindices.png', bbox_inches='tight', pad_inches=0.1)
+    plt.savefig('saved_plots/iggielgn/centrality/'+entity+'_removals_subindices.svg', bbox_inches='tight', pad_inches=0.1)
+    plt.savefig('latex_figures/'+entity+'_removals_subindices.svg', bbox_inches='tight', pad_inches=0.1)
     plt.show()
 
     # Create figure for the second plot
@@ -310,6 +314,8 @@ def plot_comparison(greedy_df, random_df, entity='node'):
     plt.tight_layout()
     plt.grid(True, alpha=0.2)
     plt.savefig('saved_plots/iggielgn/centrality/'+entity+'_removals_index.png', bbox_inches='tight', pad_inches=0.1)
+    plt.savefig('saved_plots/iggielgn/centrality/'+entity+'_removals_index.svg', bbox_inches='tight', pad_inches=0.1)
+    plt.savefig('latex_figures/'+entity+'_removals_index.svg', bbox_inches='tight', pad_inches=0.1)
     plt.show()
 
 
