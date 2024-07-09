@@ -83,6 +83,19 @@ def plot_node(node_ids, graph):
 #------------------------------------------------------------CENTRALITY-BASED APPROACH------------------------------------------------------------
 
 def n_minus_k(G_, heuristic, remove='node', n_benchmarks=20, k_removals=2500):
+    """
+    Computes the N-k centrality-based robustness of a given network using the composite centrality-based approach.
+
+    Parameters:
+        G_: A NetworkX MultiDiGraph
+        heuristic: The heuristic to use for targeted removals. Options are 'random' or 'greedy'
+        remove: The type of entity to remove. Options are 'node' or 'edge'
+        n_benchmarks: The number of benchmarks to use for the random heuristic
+        k_removals: The number of removals to perform
+    
+    Returns:
+        results_df: A DataFrame containing the results of the N-k centrality-based robustness analysis
+    """
 
     G = G_.copy()
 
@@ -167,29 +180,26 @@ def NCPI(G, lcs_G_init, nwc_G_init, nsc_G_init, dia_G_init, comp_centr_G_init):
     """
     CONNECTEDNESS 
     Measures the network's resilience against random failures or targeted attacks. 
-    It's approximated by the relative sizes of the largest connected component, weakly connected components, and strongly connected components.
-
-    """
-
-        
+    Approximated by the relative sizes of the largest connected component, weakly connected components, and strongly connected components.
+    """  
     NCPI_connectedness = (largest_component_size / lcs_G_init) * (nwc_G_init / num_weakly_connected) * ( nsc_G_init / num_strongly_connected)
 
     """
     REACH 
     Quantifies the efficiency of information flow or reachability across the network. 
-    It's reflected in the ratio of current average shortest path length and network diameter in comparison to their initial values.
+    Reflected in the ratio of the network diameter in comparison to the initial values.
     """
     NCPI_reach = (diameter / dia_G_init)
 
     """
     CONNECTIVITY 
     Represents the centrality or average connectivity of the network. 
-    It's estimated by comparing the current median node degree to the initial median node degree.
+    Estimated by comparing the current median node degree to the initial median node degree.
     """
     NCPI_connectivity = (node_composite_centrality / comp_centr_G_init)
 
     """
-    Calculate the composite connectedness index using the above calculated indices
+    Calculate the network composite performance index using the above calculated indices
     """
     NCPI = NCPI_connectedness * NCPI_reach * NCPI_connectivity
     
@@ -210,40 +220,39 @@ def CCI(G):
 
 def CCI_v(G):
     """ 
-    Returns the node (country) with the highest composite centrality value in the given graph G
+    Returns the node with the highest composite centrality value in the given graph G
     """
     composite_centralities = CCI(G)
     return max(composite_centralities, key=composite_centralities.get)
 
 def CCI_e(G, type=''):
     """
-    Returns the edge with the highest composite centrality value in the given graph G
+    Returns the edge with the highest edge betweenness centrality value in the given graph G
     """
-
-    if type == '':
-        centrality = CCI(G)
-        edge_centrality = {
-            edge: (centrality[edge[0]] + centrality[edge[1]]) / 2.0
-            for edge in G.edges()
-        }
-        return max(edge_centrality, key=edge_centrality.get)
     
     if type == 'Li et al., 2021':
-
         edge_centrality = nx.edge_betweenness_centrality(G)
         edge_centrality = {edge: centrality for edge, centrality in edge_centrality.items() if 'super_source' not in edge and 'super_sink' not in edge}
         return max(edge_centrality, key=edge_centrality.get)
-    
+    else:
+        return None
 
 def get_connectedness_metrics_of(G):
     """
-    Helper function that returns the following connectedness metrics of the given graph G:
-    - Largest component size
-    - Number of weakly connected components
-    - Number of strongly connected components
-    - Diameter 
-    - Node composite centrality
+    Returns the connectedness metrics of the given graph G
+
+    Parameters:
+        G: A NetworkX MultiDiGraph
+
+    Returns:
+        largest_component_size: Size of the largest connected component
+        num_weakly_connected: Number of weakly connected components
+        num_strongly_connected: Number of strongly connected components
+        diameter: Diameter of the graph
+        node_composite_centrality: Average composite centrality of the nodes in the graph
+        next_target_node: Node with the highest composite centrality value
     """
+
     weakly_connected = list(nx.weakly_connected_components(G))
     largest_component = max(weakly_connected, key=len, default=[])
     largest_component_size = len(largest_component)
@@ -268,14 +277,6 @@ def get_connectedness_metrics_of(G):
 
     return largest_component_size, num_weakly_connected, num_strongly_connected, diameter, node_composite_centrality, next_target_node
     
-    
-
-
-
-
-
-
-
 
 #----------------------------------------------------------MAX FLOW-BASED APPROACH------------------------------------------------------------
 
@@ -290,15 +291,23 @@ def get_heuristic_targets():
 
 def W(G, global_nodes_lst, global_sources_lst, global_sinks_lst):
     """
-    Computes all-pairs flow matrix W of the network.
+    Computes the flow matrix W of the network.
+    The flow matrix W is a 2D numpy array representing the flow between all s-t-pairs in the network.
+
+    Also computes the flow heuristics for the network based on the specified heuristic type.
     
     Parameters:
         G: A NetworkX MultiDiGraph
+        global_nodes_lst: List of all nodes in the network
+        global_sources_lst: List of source nodes in the network
+        global_sinks_lst: List of sink nodes in the network
 
     Returns:
         flow_matrix: 2D numpy array representing the flow matrix
         node_indices: Dictionary mapping nodes to their corresponding indices
+        tot_flow: Total flow in the network
     """
+
     num_nodes = len(global_nodes_lst)
     node_indices = {node: i for i, node in enumerate(global_nodes_lst)}
     flow_matrix = np.zeros((num_nodes, num_nodes))
@@ -368,7 +377,7 @@ def W(G, global_nodes_lst, global_sources_lst, global_sinks_lst):
 def W_c(_flow_matrix, target, node_indices):
     """
     Computes the flow matrix W_c after removing a node.
-    Defined in Cai et al. (2021) as the original flow matrix of the network after removing entry corresponding to the removed node.
+    Defined in Cai et al. (2021) as the original flow matrix of the network after removing the entry corresponding to the removed node.
 
     Parameters:
         flow_matrix: Flow matrix of the original graph
@@ -402,10 +411,21 @@ def W_c(_flow_matrix, target, node_indices):
     return flow_matrix
 
 
-def flow_capacity_robustness(G_, heuristic='random', remove='node', k_removals=2500, n_benchmarks = 10, greedy_centrality_lst=None):
-    """ 
-    Computes the n-k capacity robustness based on maximum flow of a graph
+def flow_capacity_robustness(G_, heuristic='random', remove='node', k_removals=2500, n_benchmarks = 10):
     """
+    Computes the N-k capacity robustness of a given network using the flow capacity robustness metric.
+
+    Parameters:
+        G_: A NetworkX MultiDiGraph
+        heuristic: The heuristic to use for targeted removals. Options are 'random', 'fc', 'fcr', 'wfcr'
+        remove: The type of entity to remove. Options are 'node' or 'edge'
+        k_removals: The number of removals to perform
+        n_benchmarks: The number of benchmarks to use for the random heuristic
+
+    Returns:
+        results_df: A DataFrame containing the results of the N-k capacity robustness analysis
+    """
+
 
     global heuristic_type
     heuristic_type = heuristic
@@ -429,7 +449,7 @@ def flow_capacity_robustness(G_, heuristic='random', remove='node', k_removals=2
 
 
     # Helper function to perform a targeted removal   
-    def perform_targeted_removal(G, heuristic, target, flow_matrix, _node_indices, results_df):
+    def perform_targeted_removal(G, heuristic, target, flow_matrix, _node_indices, results_df):        
         
         if remove == 'edge':
             G.remove_edge(*target)
@@ -500,6 +520,5 @@ def flow_capacity_robustness(G_, heuristic='random', remove='node', k_removals=2
             
         else:
             raise ValueError("Invalid heuristic")
-
 
     return results_df
