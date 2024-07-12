@@ -4,15 +4,18 @@ This repository contains the source files necessary for producing the results fr
 
 ## Directories
 
-- `scripts`: Python code and Jupyter Notebooks to reproduce results
 - `data`: Various data compiled for use in EDA
 - `IGGIELGN`: Data set from the SciGRID_gas project
 - `graph_objects`: NetworkX graph objects produced from the processed SciGRID_gas project data
 - `results_tables`: Pickle files with the complete results from all analyses
 
+The scripts are stored in the root folder.
+
 ## Usage
 
-Running the `run_results` file in the `scripts` folder will automatically produce all the results and store them in the `results_tables` folder. The results are already stored there for reference.
+Running the `run_results.ipynb` file will automatically produce all the results and store them in the `results_tables` folder. The results are already stored there for reference.
+
+All data processing is documented in `data_preprocessing.ipynb`. `topology_analysis.ipynb` contains the topological analysis.
 
 ## Contributing
 
